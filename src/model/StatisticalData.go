@@ -58,7 +58,7 @@ func TablesInit() {
 	if err != nil {
 		configuration.Error.Panic("Golang data model cannot be migrated to SQL: ", err)
 	}
-	configuration.Info.Println("Relations are initialised.");
+	configuration.Info.Println("Relations are initialised.")
 }
 
 // Writing of new data entries into the Data relation. Data is written only if there is at least one
@@ -113,6 +113,7 @@ func WriteNewDataEntries(rawData *[](*RawData)) {
 func WriteNewDataType(dataType *DataType) error {
 	tx := configuration.DB.Begin()
 	err01 := checkDataType(dataType)
+
 	if err01 != nil {
 		tx.Rollback()
 		return err01

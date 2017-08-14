@@ -65,6 +65,114 @@ func TestTablesInit(t *testing.T) {
 	}
 }
 
+// Unit test - modifying of already written data type.
+// Parameter t *testing.T - testing engine.
+func TestModifyDataType(t *testing.T) {
+	t.Log("Cleaning of the database ...")
+	cleanDatabases(t)
+
+	t.Log("Writing of a new data type ...")
+	name := "Type01"
+	networkProtocol := 8000
+	transportProtocol := 45
+	port := 8080
+	dataType := DataType{Name: name, Forecasting: false, NetworkProtocol: uint(networkProtocol),
+		TransportProtocol: uint(transportProtocol), Port: uint(port)}
+	writeDataType(&dataType, t)
+
+	t.Log("Modifying of the valid data type ...")
+	newName := "mod"
+	newFormat := DataType{Name: newName, NetworkProtocol: 100, TransportProtocol: 20,
+		Port: 22, Forecasting: true}
+	err02 := ModifyDataType(name, &newFormat)
+
+	t.Log("Checking of the modified data type ...")
+	if err02 != nil {
+		t.Fatalf("The error was thrown while modifying of the data type: %s", err02)
+	}
+	tx := configuration.DB.Begin()
+	var foundDataType DataType
+	err03 := tx.Where(&DataType{Name: newName}).First(&foundDataType).Error
+	if err03 != nil {
+		tx.Rollback()
+		t.Fatalf("An error occured during reading of the data type from database: %s", err03)
+	}
+	if foundDataType.Forecasting != newFormat.Forecasting {
+		t.Errorf("Expected data type forecasting mod: %t; given forecasting mod: %t",
+			newFormat.Forecasting, foundDataType.Forecasting)
+	}
+	if foundDataType.TransportProtocol != newFormat.TransportProtocol {
+		t.Errorf("Expected data type transport protocol: %d; given transport protcol: %d",
+			newFormat.Forecasting, foundDataType.Forecasting)
+	}
+	tx.Commit()
+
+	t.Log("Writing of another data type ...")
+	nextName := "TypeX"
+	nextDataType := DataType{Name: nextName, NetworkProtocol: 10, TransportProtocol: 10, Port: 10}
+	writeDataType(&nextDataType, t)
+
+	t.Log("Writing of invalid modifications (failed unique constraint) ...")
+	mod01 := DataType{Name: nextName}
+	err05 := ModifyDataType(newName, &mod01)
+	if err05 == nil {
+		t.Errorf("Expected error during writing of new data type (unique constrain failed), " +
+			"but got nil error.")
+	}
+	mod02 := DataType{Name: "wtf", NetworkProtocol: uint(networkProtocol),
+		TransportProtocol: uint(transportProtocol), Port: uint(port)}
+	err06 := ModifyDataType(nextName, &mod02)
+	if err06 == nil {
+		t.Errorf("Expected error during writing of new data type (unique constrain failed), " +
+			"but got nil error.")
+	}
+}
+
+// Unit test - writing of new data type.
+// Parameter t *testing.T - testing engine.
+func TestWriteNewDataType(t *testing.T) {
+	t.Log("Cleaning of the database ...")
+	cleanDatabases(t)
+
+	t.Log("Writing of data types ...")
+	dataTypes := []DataType{
+		{Name: "Type01", Forecasting: false, NetworkProtocol: 10, TransportProtocol: 20, Port: 30},
+		{Name: "Type02", NetworkProtocol: 44, TransportProtocol: 42, Port: 30},
+		{Name: "Type03"},
+		{ID: 10},
+		{Name: "Type02", NetworkProtocol: 11, TransportProtocol: 42, Port: 30},
+		{Name: "Type04", Forecasting: true, NetworkProtocol: 10, TransportProtocol: 20, Port: 30},
+	}
+	errorsListX := make([]error, len(dataTypes))
+	for i, dataType := range dataTypes {
+		errorsListX[i] = WriteNewDataType(&dataType)
+	}
+
+	t.Log("Checking of errors after writing some new data types ...")
+	trueErrors := []bool{false, false, false, true, true, true}
+	for i, err := range errorsListX {
+		if (err==nil) != (!trueErrors[i]) {
+			t.Errorf("Expected error statement: %t; given error statement: %t",
+				!trueErrors[i], err==nil)
+		}
+	}
+
+	t.Log("Checking count of data types ...")
+	expectedCount := 3
+	tx := configuration.DB.Begin()
+	var realCount int
+	err01 := tx.Model(&DataType{}).Count(&realCount).Error
+	if err01 != nil {
+		tx.Rollback()
+		t.Fatalf("An error occured during counting of data types: %s", err01)
+	}
+	if expectedCount != realCount {
+		t.Errorf("Expected count of data types: %d; given count of data types: %d",
+			expectedCount, realCount)
+	}
+	tx.Commit()
+}
+
 // Unit test - writing of new data entries.
 // Parameter t *testing.T - testing engine.
 func TestWriteNewDataEntries(t *testing.T) {
@@ -109,47 +217,6 @@ func TestWriteNewDataEntries(t *testing.T) {
 	tx.Commit()
 }
 
-// Unit test - writing of new data type.
-// Parameter t *testing.T - testing engine.
-func TestWriteNewDataType(t *testing.T) {
-	t.Log("Cleaning of the database ...")
-	cleanDatabases(t)
-
-	t.Log("Writing of data types ...")
-	dataTypes := []DataType{
-		{Name: "Type01", Forecasting: false, NetworkProtocol: 10, TransportProtocol: 20, Port: 30},
-		{Name: "Type02", NetworkProtocol: 44, TransportProtocol: 42, Port: 30},
-		{Name: "Type03"},
-		{ID: 10},
-		{Name: "Type02", NetworkProtocol: 11, TransportProtocol: 42, Port: 30},
-		{Name: "Type04", Forecasting: true, NetworkProtocol: 10, TransportProtocol: 20, Port: 30},
-	}
-	errorsList := make([]error, len(dataTypes))
-	for i, dataType := range dataTypes {
-		errorsList[i] = WriteNewDataType(&dataType)
-	}
-
-	t.Log("Checking of errors after writing some new data types ...")
-	trueErrors := []bool{false, false, false, true, true, true}
-	for i, err := range errorsList {
-		if (err==nil) != (!trueErrors[i]) {
-			t.Errorf("Expected error statement: %t; given error statement: %t",
-				trueErrors[i], err==nil)
-		}
-	}
-
-	t.Log("Checking count of data types ...")
-	expectedCount := 3
-	tx := configuration.DB.Begin()
-	var realCount int
-	tx.Model(&DataType{}).Count(&realCount)
-	if expectedCount != realCount {
-		t.Errorf("Expected count of data types: %d; given count of data types: %d",
-			expectedCount, realCount)
-	}
-	tx.Commit()
-}
-
 // Unit test - searching for all data types.
 // Parameter t *testing.T - testing engine.
 func TestListDataTypes(t *testing.T) {
@@ -184,11 +251,10 @@ func TestGetDataType(t *testing.T) {
 
 	t.Log("Writing of a new data type ...")
 	name := "Type01"
-	forecasting := false
 	networkProtocol := 8000
 	transportProtocol := 45
 	port := 8080
-	dataType := DataType{Name: name, Forecasting: forecasting, NetworkProtocol: uint(networkProtocol),
+	dataType := DataType{Name: name, Forecasting: false, NetworkProtocol: uint(networkProtocol),
 		TransportProtocol: uint(transportProtocol), Port: uint(port)}
 	tx := configuration.DB.Begin()
 	err := tx.Create(&dataType).Error
@@ -227,70 +293,6 @@ func TestGetDataType(t *testing.T) {
 	tx.Commit()
 }
 
-// Unit test - modifying of already written data type.
-// Parameter t *testing.T - testing engine.
-func TestModifyDataType(t *testing.T) {
-	t.Log("Cleaning of the database ...")
-	cleanDatabases(t)
-
-	t.Log("Writing of a new data type ...")
-	name := "Type01"
-	forecasting := false
-	networkProtocol := 8000
-	transportProtocol := 45
-	port := 8080
-	dataType := DataType{Name: name, Forecasting: forecasting, NetworkProtocol: uint(networkProtocol),
-		TransportProtocol: uint(transportProtocol), Port: uint(port)}
-	writeDataType(&dataType, t)
-
-	t.Log("Modifying of the valid data type ...")
-	newName := "mod"
-	newFormat := DataType{Name: newName, NetworkProtocol: 100, TransportProtocol: 20,
-		Port: 22, Forecasting: true}
-	err02 := ModifyDataType(name, &newFormat)
-
-	t.Log("Checking of the modified data type ...")
-	if err02 != nil {
-		t.Errorf("The error was thrown while modifying of the data type: %s", err02)
-	}
-	tx := configuration.DB.Begin()
-	var foundDataType DataType
-	err03 := tx.Where(&DataType{Name: newName}).First(&foundDataType).Error
-	if err03 != nil {
-		tx.Rollback()
-		t.Fatalf("An error occured during reading of the data type from database: %s", err03)
-	}
-	if foundDataType.Forecasting != newFormat.Forecasting {
-		t.Errorf("Expected data type forecasting mod: %t; given forecasting mod: %t",
-			newFormat.Forecasting, foundDataType.Forecasting)
-	}
-	if foundDataType.TransportProtocol != newFormat.TransportProtocol {
-		t.Errorf("Expected data type transport protocol: %d; given transport protcol: %d",
-			newFormat.Forecasting, foundDataType.Forecasting)
-	}
-	tx.Commit()
-
-	t.Log("Writting of another data type ...")
-	nextName := "TypeX"
-	nextDataType := DataType{Name: nextName, NetworkProtocol: 10, TransportProtocol: 10, Port: 10}
-	writeDataType(&nextDataType, t)
-
-	t.Log("Writing of invalid modifications (failed unique constraint) ...")
-	mod01 := DataType{Name: nextName}
-	err05 := ModifyDataType(newName, &mod01)
-	if err05 == nil {
-		t.Errorf("Expected error during writting of new data type (unique constrain failed), " +
-			"but got nil error.")
-	}
-	mod02 := DataType{Name: "wtf", NetworkProtocol: uint(networkProtocol),
-		TransportProtocol: uint(transportProtocol), Port: uint(port)}
-	err06 := ModifyDataType(nextName, &mod02)
-	if err06 == nil {
-		t.Errorf("Expected error during writting of new data type (unique constrain failed), " +
-			"but got nil error.")
-	}
-}
-
 // Unit test - removing of the data type from database.
 // Parameter t *testing.T - testing engine.
 func TestRemoveDataType(t *testing.T) {
@@ -310,14 +312,7 @@ func TestRemoveDataType(t *testing.T) {
 	writeData(&data, t)
 
 	t.Log("Writing of associations between data type and data ...")
-	tx := configuration.DB.Begin()
-	err01 := tx.Model(&dataType).Association("Data").Append(&data).Error
-	if err01 != nil {
-		tx.Rollback()
-		t.Fatalf("An error occured during writing of associations between data type and data: " +
-			"%s", err01)
-	}
-	tx.Commit()
+	createAssociationDataTypeData(&dataType, &data, t)
 
 	t.Log("Removing of the data type ...")
 	err02 := RemoveDataType(dataTypeName)
@@ -340,6 +335,137 @@ func TestRemoveDataType(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected error during removing of unknown data type but got nil error.")
 	}
+}
+
+// Unit test - listing of last data entries by entered time.
+// Parameter t *testing.T - testing engine.
+func TestListLastDataEntries(t *testing.T) {
+	t.Log("Cleaning of the database ...")
+	cleanDatabases(t)
+
+	t.Log("Writing of a new data type ...")
+	dataTypeName := "type01"
+	dataType := DataType{Name: dataTypeName}
+	writeDataType(&dataType, t)
+
+	t.Log("Writing of some data #1 ...")
+	data01 := [](*Data) {
+		&Data{Bytes: 10, Time: time.Now()},
+		&Data{Bytes: 10, Time: time.Now()},
+	}
+	writeData(&data01, t)
+
+	t.Log("Creating of the timestamp before sleep ...")
+	timestamp := time.Now()
+	time.Sleep(1 * time.Second)
+	dataBytes := 20
+
+	t.Log("Writing of some data #2 ...")
+	data02 := [](*Data) {
+		&Data{Bytes: uint(dataBytes), Time: time.Now()},
+		&Data{Bytes: uint(dataBytes), Time: time.Now()},
+	}
+	writeData(&data02, t)
+
+	t.Log("Creating of the associations between the data type and data ...")
+	createAssociationDataTypeData(&dataType, &data01, t)
+	createAssociationDataTypeData(&dataType, &data02, t)
+
+	t.Log("Fetching of last data entries ...")
+	lastData, err01 := ListLastDataEntries(dataTypeName, timestamp)
+	if err01 != nil {
+		t.Fatalf("Last data entries cannot be fetched from database: %s", err01)
+	}
+	if len(*lastData) != len(data02) {
+		t.Errorf("Expected number of data entries: %d; got number of data entries: %d",
+			len(data02), len(*lastData))
+	} else {
+		if (*lastData)[0].Bytes != uint(dataBytes) {
+			t.Errorf("Expected number of data bytes: %d; got number of data bytes: %d",
+				dataBytes, (*lastData)[0].Bytes)
+		}
+		if (*lastData)[1].Bytes != uint(dataBytes) {
+			t.Errorf("Expected number of data bytes: %d; got number of data bytes: %d",
+				dataBytes, (*lastData)[1].Bytes)
+		}
+	}
+
+	t.Log("Reading with the invalid data type ...")
+	_, err02 := ListLastDataEntries("fake", timestamp)
+	if err02 == nil {
+		t.Errorf("An error was expected during reading of last data entries bounded to " +
+			"invalid data type but nil error is thrown.")
+	}
+}
+
+// Unit test - removing of old data entries.
+// Parameter t *testing.T - testing engine.
+func TestRemoveOldDataEntries(t *testing.T) {
+	t.Log("Cleaning of the database ...")
+	cleanDatabases(t)
+
+	t.Log("Writing of a new data type ...")
+	dataTypeName := "type01"
+	dataType := DataType{Name: dataTypeName}
+	writeDataType(&dataType, t)
+
+	t.Log("Writing of some data #1 ...")
+	data01 := [](*Data) {
+		&Data{Bytes: 10, Time: time.Now()},
+		&Data{Bytes: 10, Time: time.Now()},
+	}
+	writeData(&data01, t)
+
+	t.Log("Creating of the timestamp before sleep ...")
+	timestamp := time.Now()
+	time.Sleep(1 * time.Second)
+	dataBytes := 20
+
+	t.Log("Writing of some data #2 ...")
+	data02 := [](*Data) {
+		&Data{Bytes: uint(dataBytes), Time: time.Now()},
+		&Data{Bytes: uint(dataBytes), Time: time.Now()},
+	}
+	writeData(&data02, t)
+
+	t.Log("Creating of the associations between the data type and data ...")
+	createAssociationDataTypeData(&dataType, &data01, t)
+	createAssociationDataTypeData(&dataType, &data02, t)
+
+	t.Log("Removing of old data entries ...")
+	RemoveOldDataEntries(timestamp)
+
+	t.Log("Checking of data entries ...")
+	allData := getAllData(t)
+	if len(*allData) != len(data02) {
+		t.Errorf("Expected number of data entries: %d; got number of data entries: %d",
+			len(data02), len(*allData))
+	} else {
+		if (*allData)[0].Bytes != uint(dataBytes) {
+			t.Errorf("Expected number of data bytes: %d; got number of data bytes: %d",
+				dataBytes, (*allData)[0].Bytes)
+		}
+		if (*allData)[1].Bytes != uint(dataBytes) {
+			t.Errorf("Expected number of data bytes: %d; got number of data bytes: %d",
+				dataBytes, (*allData)[1].Bytes)
+		}
+	}
+
+	t.Log("Checking of associations ...")
+	tx := configuration.DB.Begin()
+	var associatedData [](*Data)
+	err := tx.Model(&dataType).Association("Data").Find(&associatedData).Error
+	if err != nil {
+		tx.Rollback()
+		t.Fatalf("Cannot find associated data with specific data type: %s", err)
+	}
+	for _, d := range associatedData {
+		if d.Bytes != uint(dataBytes) {
+			t.Errorf("Expected number of data bytes: %d; got number of data bytes: %d",
+				dataBytes, d.Bytes)
+		}
+	}
+	tx.Commit()
 }
 
 // Writing of new data types into the database.
@@ -411,6 +537,21 @@ func writeData(data *[](*Data), t* testing.T) {
 			tx.Rollback()
 			t.Fatalf("Test failed while writing of new data: %s", err)
 		}
+	}
+	tx.Commit()
+}
+
+// Creating of associations: one data type - a lot of data.
+// Parameter dataType *DataType - the data type that is going to be associated with data.
+// Parameter data *[](*Data) - sample data entries.
+// Parameter t *testing.T - testing engine.
+func createAssociationDataTypeData(dataType *DataType, data *[](*Data), t *testing.T) {
+	tx := configuration.DB.Begin()
+	err := tx.Model(dataType).Association("Data").Append(data).Error
+	if err != nil {
+		tx.Rollback()
+		t.Errorf("An error occured during creating of associations between the data type " +
+			"and data: %s", err)
 	}
 	tx.Commit()
 }
