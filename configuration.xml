@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ConfigData>
+	<NetworkConfiguration>
+		<AdapterName>/Device/NPF_{A4C8ED88-6688-448F-8737-4451E903E16C}</AdapterName>
+		<MaximumFrameSize>1600</MaximumFrameSize>
+		<ReadTimeout>10</ReadTimeout>
+        <DataBuffer>1000</DataBuffer>
+	</NetworkConfiguration>
+</ConfigData>
