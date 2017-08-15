@@ -43,17 +43,21 @@ type DataType struct {
 // Attribute Bytes uint - number of captured bytes (whole frame).
 // NetworkProtocol uint - EthernetType field from Ethernet2 frame (decimal value).
 // TransportProtocol uint - Protocol field from IPv4 / IPv6 packet (decimal value).
-// Port uint - TCP / UDP destination / source port number.
+// SrcPort uint - TCP / UDP source port number.
+// DstPort uint - TCP / UDP destination port number.
 type RawData struct {
 	Bytes				uint
 	NetworkProtocol		uint
 	TransportProtocol	uint
-	Port				uint
+	SrcPort				uint
+	DstPort				uint
+	Time				time.Time
 }
 
 // Initialisation of database relations or tables if they haven't already been created.
 //
 func TablesInit() {
+	configuration.Info.Println("Initialisation of the database relations.")
 	err := configuration.DB.AutoMigrate(&DataType{}, &Data{}).Error
 	if err != nil {
 		configuration.Error.Panic("Golang data model cannot be migrated to SQL: ", err)
@@ -76,8 +80,8 @@ func WriteNewDataEntries(rawData *[](*RawData)) {
 					"(network_protocol = ? AND " +
 					"(transport_protocol = ? OR " +
 					"(transport_protocol = ? AND " +
-					"(port = ? OR port = ?))))",
-					0, data.NetworkProtocol, 0, data.TransportProtocol, 0, data.Port).
+					"(port = ? OR port = ? OR port = ?))))",
+					0, data.NetworkProtocol, 0, data.TransportProtocol, 0, data.SrcPort, data.DstPort).
 				Find(&dataTypes).Error
 			if err01 != nil {
 				tx.Rollback()
@@ -85,7 +89,7 @@ func WriteNewDataEntries(rawData *[](*RawData)) {
 			}
 			// There is at least one matching data type. Now it is needed to write new data entry.
 			if len(dataTypes) != 0 {
-				newData := Data{Bytes: data.Bytes}
+				newData := Data{Bytes: data.Bytes, Time: data.Time}
 				err02 := tx.Create(&newData).Error
 				if err02 != nil {
 					tx.Rollback()

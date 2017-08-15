@@ -28,6 +28,7 @@ func ConnectDatabase() {
 // Parameter upperDirectoryLevels int - number of upper level directories that lead to path of the
 // database file (from the path of unit test).
 func ConnectDatabaseFromTest(upperDirectoryLevels int) {
+	Info.Println("Opening of the database connection.")
 	var resultingStringBuffer bytes.Buffer
 	for i:=0; i<upperDirectoryLevels; i++ {
 		resultingStringBuffer.WriteString("../")
@@ -44,6 +45,7 @@ func ConnectDatabaseFromTest(upperDirectoryLevels int) {
 
 // Closing of the database connection - DB is set to nil.
 func CloseDatabase() {
+	Info.Println("Closing of the database connection.")
 	err := DB.Close()
 	if err != nil {
 		Error.Panic("Database connection cannot be closed: ", err)
