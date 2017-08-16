@@ -21,16 +21,17 @@ type TimestampedFrame struct {
 }
 
 // Starting of the frames capturing under selected network configuration.
-// Parameter configuration model.NetworkConfiguration - network configuration settings.
-func StartCapturing(configuration model.NetworkConfiguration) {
+// Parameter configuration model.NetworkConfiguration - network configuration settings. See
+// model.NetworkConfiguration.
+func StartCapturing(configuration *model.NetworkConfiguration) {
 	handle := openNetworkAdapter(configuration)
 	processFrames(configuration, handle)
 }
 
 // Opening of the network adapter.
-// Parameter configuration model.NetworkConfiguration - network configuration settings.
-// Returning *pcap.Handle - frames handler.
-func openNetworkAdapter(conf model.NetworkConfiguration) *pcap.Handle {
+// Parameter configuration model.NetworkConfiguration - network configuration settings. See model.NetworkConfiguration.
+// Returning *pcap.Handle - frames handler. See pcap.Handle.
+func openNetworkAdapter(conf *model.NetworkConfiguration) *pcap.Handle {
 	configuration.Info.Println("Opening of the network adapter.")
 	readTimeout := time.Duration(conf.ReadTimeout) * time.Millisecond
 	handle, err := pcap.OpenLive(conf.AdapterName, int32(conf.MaximumFrameSize),
@@ -44,8 +45,8 @@ func openNetworkAdapter(conf model.NetworkConfiguration) *pcap.Handle {
 
 // Sequential processing of frames.
 // Parameter configuration model.NetworkConfiguration - network configuration settings.
-// Parameter handle *pcap.Handle - frames handler.
-func processFrames(conf model.NetworkConfiguration, handle *pcap.Handle) {
+// Parameter handle *pcap.Handle - frames handler. See pcap.Handle.
+func processFrames(conf *model.NetworkConfiguration, handle *pcap.Handle) {
 	configuration.Info.Println("Starting of frames processing.")
 	defer handle.Close()
 	tickChannel := time.Tick(time.Millisecond * time.Duration(conf.DataBuffer))
@@ -67,7 +68,8 @@ func processFrames(conf model.NetworkConfiguration, handle *pcap.Handle) {
 }
 
 // Forming of raw data and sending of frames collections to database manager.
-// Parameter timestampedFrames [](*TimestampedFrame - slice of frames tagged with timestamp.
+// Parameter timestampedFrames [](*TimestampedFrame - slice of frames tagged with timestamp. See
+// TimestampedFrame.
 func sendDataToDatabase(timestampedFrames [](*TimestampedFrame)) {
 	rawData := make([](*model.RawData), len(timestampedFrames))
 	for i, timeFrame := range timestampedFrames {
