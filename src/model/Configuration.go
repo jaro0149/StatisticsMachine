@@ -7,10 +7,12 @@ import (
 )
 
 // The struct of configuration file.
-// Attribute NetworkConfiguration NetworkConfiguration - Network-based configuration.
+// Attribute NetworkConfiguration NetworkConfiguration - network-based settings.
 // See NetworkConfiguration.
+// Attribute CleaningConfiguration - settings that relate with periodical cleaning of old data entries.
 type ConfigData struct {
-	NetworkConfiguration *NetworkConfiguration
+	NetworkConfiguration 	NetworkConfiguration
+	CleaningConfiguration 	CleaningConfiguration
 }
 
 // Network-based settings.
@@ -21,10 +23,18 @@ type ConfigData struct {
 // Attribute DataBuffer uint - Maximum amount of time (milliseconds) during which the caching buffer is
 // continuously filling before it is sent to the next processing (writing to the database is the last mile).
 type NetworkConfiguration struct {
-	AdapterName string
-	MaximumFrameSize uint
-	ReadTimeout int
-	DataBuffer uint
+	AdapterName 		string
+	MaximumFrameSize 	uint
+	ReadTimeout 		int
+	DataBuffer 			uint
+}
+
+// Prediction-based settings.
+// Attribute CleaningInterval uint - attribute specifies how often should old data entries be removed (seconds).
+// Attribute CleaningDepth uint - only data entries that are older than this treshhold are removed (seconds).
+type CleaningConfiguration struct {
+	CleaningInterval 	uint
+	CleaningDepth 		uint
 }
 
 // Parsing of XML configuration file into the ConfigData struct.

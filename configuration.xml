@@ -6,4 +6,8 @@
 		<ReadTimeout>10</ReadTimeout>
         <DataBuffer>1000</DataBuffer>
 	</NetworkConfiguration>
+	<CleaningConfiguration>
+		<CleaningInterval>60</CleaningInterval>
+		<CleaningDepth>60</CleaningDepth>
+	</CleaningConfiguration>
 </ConfigData>
