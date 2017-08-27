@@ -13,6 +13,7 @@ import (
 type ConfigData struct {
 	NetworkConfiguration 	NetworkConfiguration
 	CleaningConfiguration 	CleaningConfiguration
+	PredictionConfiguration PredictionConfiguration
 }
 
 // Network-based settings.
@@ -35,6 +36,10 @@ type NetworkConfiguration struct {
 type CleaningConfiguration struct {
 	CleaningInterval 	uint
 	CleaningDepth 		uint
+}
+
+type PredictionConfiguration struct {
+	SmoothingRange		uint
 }
 
 // Parsing of XML configuration file into the ConfigData struct.
