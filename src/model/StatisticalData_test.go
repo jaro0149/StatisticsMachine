@@ -189,13 +189,13 @@ func TestWriteNewDataEntries(t *testing.T) {
 
 	t.Log("Writing of new raw data into the database ...")
 	rawData := []*RawData{
-		{Bytes: 8, NetworkProtocol: 45, TransportProtocol: 11, Port: 2},
-		{Bytes: 15, NetworkProtocol: 200, TransportProtocol: 3, Port: 15},
-		{Bytes: 789, NetworkProtocol: 200, TransportProtocol: 45, Port: 80},
-		{Bytes: 454, NetworkProtocol: 200, TransportProtocol: 45, Port: 8080},
-		{Bytes: 1, NetworkProtocol: 200, TransportProtocol: 60, Port: 45},
-		{Bytes: 2, NetworkProtocol: 450, TransportProtocol: 22, Port: 8025},
-		{Bytes: 1200, NetworkProtocol: 200, TransportProtocol: 45, Port: 80}}
+		{Bytes: 8, NetworkProtocol: 45, TransportProtocol: 11, SrcPort: 2, DstPort: 2},
+		{Bytes: 15, NetworkProtocol: 200, TransportProtocol: 3, SrcPort: 15, DstPort: 15},
+		{Bytes: 789, NetworkProtocol: 200, TransportProtocol: 45, SrcPort: 80, DstPort: 80},
+		{Bytes: 454, NetworkProtocol: 200, TransportProtocol: 45, SrcPort: 8080, DstPort: 8080},
+		{Bytes: 1, NetworkProtocol: 200, TransportProtocol: 60, SrcPort: 45, DstPort: 45},
+		{Bytes: 2, NetworkProtocol: 450, TransportProtocol: 22, SrcPort: 8025, DstPort: 8025},
+		{Bytes: 1200, NetworkProtocol: 200, TransportProtocol: 45, SrcPort: 80, DstPort: 80}}
 	WriteNewDataEntries(&rawData)
 
 	t.Log("Searching for written data with filled IDs ...")
