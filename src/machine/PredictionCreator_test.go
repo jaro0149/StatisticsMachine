@@ -11,7 +11,7 @@ import (
 
 // Tested object of PredictionCreator struct. See PredictionCreator.
 //
-var predictionCreator PredictionCreator
+var predictionCreator *PredictionCreator
 
 // Scheduling of setup, unit tests and tear-down functions. See testing.M
 // Parameter m *testing.M - unit tests machine.
@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 //
 func setUp() {
 	configuration.LoggingInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr)
-	predictionCreator = PredictionCreator{}
+	predictionCreator = NewPredictionCreator(&model.PredictionConfiguration{SmoothingThreads: 4})
 }
 
 // Cleaning after performing unit tests.
@@ -39,9 +39,7 @@ func tearDown() {
 // Parameter t *testing.T - testing engine.
 func TestPredictionCreator_SmoothData1(t *testing.T) {
 	t.Log("Initialisation of prediction configuration and data slice ...")
-	conf := model.PredictionConfiguration{
-		SmoothingRange: 5000,
-	}
+	predictionCreator.predictionConfiguration.SmoothingRange = 5000
 	var dataSlice [](*model.Data)
 	dataEntries := 18
 	runningTime := time.Now()
@@ -56,7 +54,7 @@ func TestPredictionCreator_SmoothData1(t *testing.T) {
 	}
 
 	t.Log("Execution of data smoothing ...")
-	smoothedData := predictionCreator.SmoothData(&conf, &dataSlice)
+	smoothedData := predictionCreator.SmoothData(&dataSlice)
 
 	t.Log("Verification of smoothed data slice ...")
 	validData := []float64{14.0, 24.0, 34.0, 42.0}
@@ -81,9 +79,7 @@ func TestPredictionCreator_SmoothData1(t *testing.T) {
 // Parameter t *testing.T - testing engine.
 func TestPredictionCreator_SmoothData2(t *testing.T) {
 	t.Log("Initialisation of prediction configuration and data slice ...")
-	conf := model.PredictionConfiguration{
-		SmoothingRange: 1000,
-	}
+	predictionCreator.predictionConfiguration.SmoothingRange = 1000
 	var dataSlice [](*model.Data)
 	dataEntries := 3
 	runningTime := time.Now()
@@ -98,7 +94,7 @@ func TestPredictionCreator_SmoothData2(t *testing.T) {
 	}
 
 	t.Log("Execution of data smoothing ...")
-	smoothedData := predictionCreator.SmoothData(&conf, &dataSlice)
+	smoothedData := predictionCreator.SmoothData(&dataSlice)
 
 	t.Log("Verification of smoothed data slice ...")
 	validData := []float64{15.0}
@@ -118,9 +114,7 @@ func TestPredictionCreator_SmoothData2(t *testing.T) {
 // Parameter t *testing.T - testing engine.
 func TestPredictionCreator_SmoothData3(t *testing.T) {
 	t.Log("Initialisation of prediction configuration and data slice ...")
-	conf := model.PredictionConfiguration{
-		SmoothingRange: 1000,
-	}
+	predictionCreator.predictionConfiguration.SmoothingRange = 1000
 	var dataSlice [](*model.Data)
 	dataEntries := 10
 	runningTime := time.Now()
@@ -135,7 +129,7 @@ func TestPredictionCreator_SmoothData3(t *testing.T) {
 	}
 
 	t.Log("Execution of data smoothing ...")
-	smoothedData := predictionCreator.SmoothData(&conf, &dataSlice)
+	smoothedData := predictionCreator.SmoothData(&dataSlice)
 
 	t.Log("Verification of smoothed data slice ...")
 	validData := []float64{15, 27.5, 40.0, 52.5}
@@ -155,9 +149,7 @@ func TestPredictionCreator_SmoothData3(t *testing.T) {
 // Parameter t *testing.T - testing engine.
 func TestPredictionCreator_SmoothData4(t *testing.T) {
 	t.Log("Initialisation of prediction configuration and data slice ...")
-	conf := model.PredictionConfiguration{
-		SmoothingRange: 1000,
-	}
+	predictionCreator.predictionConfiguration.SmoothingRange = 1000
 	var dataSlice [](*model.Data)
 	dataEntries := 4
 	runningTime := time.Now()
@@ -172,7 +164,7 @@ func TestPredictionCreator_SmoothData4(t *testing.T) {
 	}
 
 	t.Log("Execution of data smoothing ...")
-	smoothedData := predictionCreator.SmoothData(&conf, &dataSlice)
+	smoothedData := predictionCreator.SmoothData(&dataSlice)
 	/*for i:=0; i<len(*smoothedData); i++ {
 		if (*smoothedData)[i] != nil {
 			fmt.Println((*smoothedData)[i].DataElement)
