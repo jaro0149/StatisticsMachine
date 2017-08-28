@@ -7,31 +7,30 @@ import (
 	"sync"
 )
 
-// Initial number of threads that serve data smoothing. This count is subsequently decreased if threads cannot be
-// fitted with data slice.
-const SMOOTHING_THREADS_START = 4
-
-// Prediction creator - important data slices and semaphores.
-// Attribute smoothedData *[](*model.FinalData) - smoothing correction of data slices. See model.FinalData.
-// Attribute predictedData *[](*model.FinalData) - prediction up to the specified horizon. See model.FinalData.
-// Attribute *model.DataType - data type to which the prediction is created (individual smoothing is needed too).
+// Attribute predictionConfiguration *model.PredictionConfiguration - configuration settings - smoothing cell size.
+// See model.PredictionConfiguration.
 type PredictionCreator struct {
-	smoothedData	*[](*model.FinalData)
-	predictedData	*[](*model.FinalData)
-	*model.DataType
+	predictionConfiguration *model.PredictionConfiguration
+}
+
+// Creating instance of the PredictionCreator.
+// Parameter conf *model.PredictionConfiguration - configuration settings - smoothing cell size.
+// See model.PredictionConfiguration.
+// Returning *PredictionCreator - PredictionCreator object.
+func NewPredictionCreator(conf *model.PredictionConfiguration) *PredictionCreator {
+	predictionCreator := PredictionCreator{predictionConfiguration: conf}
+	return &predictionCreator
 }
 
 // Initial smoothing of data slice - creating of periodic intervals with specified cell size (time window).
-// Parameter conf *model.PredictionConfiguration - configuration settings - smoothing cell size.
-// See model.PredictionConfiguration.
 // Parameter dataSlice *[](*model.Data) - original data slice with frames bytes and timestamps. See model.Data.
 // Returning *[](*model.FinalData) - smoothed data vector. See model.FinalData.
-func (PredictionCreator *PredictionCreator) SmoothData(conf *model.PredictionConfiguration,
-	dataSlice *[](*model.Data)) (*[](*model.FinalData)) {
+func (PredictionCreator *PredictionCreator) SmoothData(dataSlice *[](*model.Data)) (*[](*model.FinalData)) {
 	if len(*dataSlice) != 0 {
 		mutex := &sync.Mutex{}
-		smoothedData := initSmoothingSlice(conf, dataSlice)
-		assignSmoothingJobs(conf, dataSlice, SMOOTHING_THREADS_START, smoothedData, mutex)
+		smoothedData := initSmoothingSlice(PredictionCreator.predictionConfiguration, dataSlice)
+		assignSmoothingJobs(PredictionCreator.predictionConfiguration, dataSlice,
+			int(PredictionCreator.predictionConfiguration.SmoothingThreads), smoothedData, mutex)
 		return smoothedData
 	} else {
 		smoothedData := make([](*model.FinalData), 0)
