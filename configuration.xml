@@ -10,4 +10,11 @@
 		<CleaningInterval>60</CleaningInterval>
 		<CleaningDepth>60</CleaningDepth>
 	</CleaningConfiguration>
+	<PredictionConfiguration>
+		<SmoothingRange>5000</SmoothingRange>
+		<SmoothingThreads>4</SmoothingThreads>
+	</PredictionConfiguration>
+	<RestConfiguration>
+		<LocalhostPort>8080</LocalhostPort>
+	</RestConfiguration>
 </ConfigData>

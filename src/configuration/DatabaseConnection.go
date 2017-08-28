@@ -6,13 +6,22 @@ import (
 	"bytes"
 )
 
+type DatabaseConnection struct {}
+
 // Database connection reference. See gorm.DB.
 var DB *gorm.DB
+
 // Stale path to the database file (SQLite3 machine) - the same directory as application.
 var databasePath = "database.db"
 
+// Creating of instance that controls database connection.
+// Returning *DatabaseConnection - database connection controller.
+func NewDatabaseConnection() *DatabaseConnection {
+	return &DatabaseConnection{}
+}
+
 // Opening of the database connection - initialising of DB variable.
-func ConnectDatabase() {
+func (DatabaseConnection *DatabaseConnection) ConnectDatabase() {
 	tempDb, err := gorm.Open("sqlite3", databasePath)
 	if err != nil {
 		Error.Panic("Database connection cannot be created: ", err)
@@ -27,7 +36,7 @@ func ConnectDatabase() {
 // located in one of the upper level directories.
 // Parameter upperDirectoryLevels int - number of upper level directories that lead to path of the
 // database file (from the path of unit test).
-func ConnectDatabaseFromTest(upperDirectoryLevels int) {
+func (DatabaseConnection *DatabaseConnection) ConnectDatabaseFromTest(upperDirectoryLevels int) {
 	Info.Println("Opening of the database connection.")
 	var resultingStringBuffer bytes.Buffer
 	for i:=0; i<upperDirectoryLevels; i++ {
@@ -44,7 +53,7 @@ func ConnectDatabaseFromTest(upperDirectoryLevels int) {
 }
 
 // Closing of the database connection - DB is set to nil.
-func CloseDatabase() {
+func (DatabaseConnection *DatabaseConnection) CloseDatabase() {
 	Info.Println("Closing of the database connection.")
 	err := DB.Close()
 	if err != nil {

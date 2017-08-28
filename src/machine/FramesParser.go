@@ -12,6 +12,14 @@ import (
 // Initial capacity of the frames buffer.
 const BUFFER_ALLOCATION_SIZE uint = 50
 
+// Attribute conf model.NetworkConfiguration - network configuration settings. See model.NetworkConfiguration.
+// Attribute statisticalData *model.StatisticalData - instance that control access to SQL database.
+// See model.StatisticalData.
+type FramesParser struct {
+	networkConfiguration 	*model.NetworkConfiguration
+	statisticalData 		*model.StatisticalData
+}
+
 // Frame combined with the timestamp (when the frame was captured).
 // Attribute Frame *gopacket.Packet - structure of network frame.
 // Attribute Time time.Time - time of the frame capture.
@@ -20,12 +28,23 @@ type TimestampedFrame struct {
 	Time	time.Time
 }
 
+// Creating instance of the FramesParser.
+// Parameter conf model.NetworkConfiguration - network configuration settings. See model.NetworkConfiguration.
+// Parameter statisticalData *model.StatisticalData - instance that control access to SQL database.
+// See model.StatisticalData.
+// Returning *FramesParser - FramesParser object.
+func NewFramesParser(conf *model.NetworkConfiguration, statisticalData *model.StatisticalData) *FramesParser {
+	framesParser := FramesParser {
+		networkConfiguration: conf,
+		statisticalData: statisticalData,
+	}
+	return &framesParser
+}
+
 // Starting of the frames capturing under selected network configuration.
-// Parameter configuration model.NetworkConfiguration - network configuration settings. See
-// model.NetworkConfiguration.
-func StartCapturing(configuration *model.NetworkConfiguration) {
-	handle := openNetworkAdapter(configuration)
-	processFrames(configuration, handle)
+func (FramesParser *FramesParser) StartCapturing() {
+	handle := openNetworkAdapter(FramesParser.networkConfiguration)
+	processFrames(FramesParser.networkConfiguration, FramesParser.statisticalData, handle)
 }
 
 // Opening of the network adapter.
@@ -45,8 +64,10 @@ func openNetworkAdapter(conf *model.NetworkConfiguration) *pcap.Handle {
 
 // Sequential processing of frames.
 // Parameter configuration model.NetworkConfiguration - network configuration settings.
+// Parameter statisticalData *model.StatisticalData - instance that control access to SQL database.
+// See model.StatisticalData.
 // Parameter handle *pcap.Handle - frames handler. See pcap.Handle.
-func processFrames(conf *model.NetworkConfiguration, handle *pcap.Handle) {
+func processFrames(conf *model.NetworkConfiguration, statisticalData *model.StatisticalData, handle *pcap.Handle) {
 	configuration.Info.Println("Starting of frames processing.")
 	defer handle.Close()
 	tickChannel := time.Tick(time.Millisecond * time.Duration(conf.DataBuffer))
@@ -68,9 +89,10 @@ func processFrames(conf *model.NetworkConfiguration, handle *pcap.Handle) {
 }
 
 // Forming of raw data and sending of frames collections to database manager.
-// Parameter timestampedFrames [](*TimestampedFrame - slice of frames tagged with timestamp. See
-// TimestampedFrame.
-func sendDataToDatabase(timestampedFrames [](*TimestampedFrame)) {
+// Parameter statisticalData *model.StatisticalData - instance that control access to SQL database.
+// See model.StatisticalData.
+// Parameter timestampedFrames [](*TimestampedFrame - slice of frames tagged with timestamp. See TimestampedFrame.
+func sendDataToDatabase(statisticalData *model.StatisticalData, timestampedFrames [](*TimestampedFrame)) {
 	rawData := make([](*model.RawData), len(timestampedFrames))
 	for i, timeFrame := range timestampedFrames {
 		var networkProtocol, transportProtocol, srcPort, dstPort uint = 0, 0, 0, 0
@@ -116,5 +138,5 @@ func sendDataToDatabase(timestampedFrames [](*TimestampedFrame)) {
 			Bytes: uint(len((*timeFrame.Frame).Data())),
 		}
 	}
-	model.WriteNewDataEntries(&rawData)
+	statisticalData.WriteNewDataEntries(&rawData)
 }

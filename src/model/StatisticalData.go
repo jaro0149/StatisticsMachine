@@ -7,6 +7,8 @@ import (
 	"fmt"
 )
 
+type StatisticalData struct {}
+
 // Data represents structure of information that is stored for matching incoming frames.
 // Attribute ID uint - unique identification of data entry.
 // Attribute Time time.Time - automatically generated time of insetting data entry into the relation.
@@ -54,9 +56,14 @@ type RawData struct {
 	Time				time.Time
 }
 
+// Creating of StatisticalData instance.
+func NewStatisticalData() *StatisticalData {
+	return &StatisticalData{}
+}
+
 // Initialisation of database relations or tables if they haven't already been created.
 //
-func TablesInit() {
+func (StatisticalData *StatisticalData) TablesInit() {
 	configuration.Info.Println("Initialisation of the database relations.")
 	err := configuration.DB.AutoMigrate(&DataType{}, &Data{}).Error
 	if err != nil {
@@ -69,7 +76,7 @@ func TablesInit() {
 // submitted data type that matches specified raw data (protocols).
 // Parameter rawData *[](*RawData) - list of data that is going to be written into the database.
 // See RawData
-func WriteNewDataEntries(rawData *[](*RawData)) {
+func (StatisticalData *StatisticalData) WriteNewDataEntries(rawData *[](*RawData)) {
 	if len(*rawData) != 0 {
 		tx := configuration.DB.Begin()
 		for _, data := range *rawData {
@@ -114,7 +121,7 @@ func WriteNewDataEntries(rawData *[](*RawData)) {
 // (without id). Data type must be unique by name and group of three information: port, network, and
 // transport protocol. See DataType.
 // Returning error - The data type is not unique.
-func WriteNewDataType(dataType *DataType) error {
+func (StatisticalData *StatisticalData) WriteNewDataType(dataType *DataType) error {
 	tx := configuration.DB.Begin()
 	err01 := checkDataType(dataType)
 
@@ -142,7 +149,7 @@ func WriteNewDataType(dataType *DataType) error {
 // Parameter name string - name of data type.
 // Returning *DataType - read information about data type or nil if the error is not nil. See DataType.
 // Returning error - Data type doesn't exist or nil if there is not error.
-func GetDataType(name string) (*DataType, error) {
+func (StatisticalData *StatisticalData) GetDataType(name string) (*DataType, error) {
 	tx := configuration.DB.Begin()
 	dataType := DataType{Name: name}
 	err := tx.Where(&dataType).First(&dataType).Error
@@ -165,7 +172,7 @@ func GetDataType(name string) (*DataType, error) {
 // Parameter oldName string - unique name of data type that is going to be modified.
 // Parameter dataType *DataType - modified data type (id cannot be changed). See DataType.
 // Returning error - the specified data type is not unique.
-func ModifyDataType(oldName string, dataType *DataType) error {
+func (StatisticalData *StatisticalData) ModifyDataType(oldName string, dataType *DataType) error {
 	tx := configuration.DB.Begin()
 	err01 := checkDataType(dataType)
 	if err01 != nil {
@@ -226,7 +233,7 @@ func checkDataType(dataType *DataType) error {
 // Removal of the data type; afterwards removal of orphaned data.
 // Parameter name string - name of the data type that is going to be removed.
 // Returning error - data type with given name cannot be found.
-func RemoveDataType(name string) error {
+func (StatisticalData *StatisticalData) RemoveDataType(name string) error {
 	tx := configuration.DB.Begin()
 	dataType := DataType{Name: name}
 	tx.Where(&dataType).First(&dataType)
@@ -273,7 +280,7 @@ func RemoveDataType(name string) error {
 
 // Listing of all saved data types.
 // Returning *[](*DataType) - list of all data types with their description. See DataType.
-func ListDataTypes() *[](*DataType) {
+func (StatisticalData *StatisticalData) ListDataTypes() *[](*DataType) {
 	tx := configuration.DB.Begin()
 	var dataTypes [](*DataType)
 	err := tx.Find(&dataTypes).Error
@@ -290,7 +297,7 @@ func ListDataTypes() *[](*DataType) {
 // Parameter limit time.Time - only data entries older than limit are returned. See time.Time.
 // Returning *[](*Data) - data entries (references). See Data.
 // Returning error - Non-nil error is returned if the data type with selected name doesn't exist.
-func ListLastDataEntries(name string, limit time.Time) (*[](*Data), error) {
+func (StatisticalData *StatisticalData) ListLastDataEntries(name string, limit time.Time) (*[](*Data), error) {
 	tx := configuration.DB.Begin()
 	var finalData [](*Data)
 	dataType := DataType{Name: name}
@@ -317,7 +324,7 @@ func ListLastDataEntries(name string, limit time.Time) (*[](*Data), error) {
 
 // Removing of old data entries and associations with data types.
 // Parameter limit time.Time - only data entries that are as old or older than limit are removed.
-func RemoveOldDataEntries(limit time.Time) {
+func (StatisticalData *StatisticalData) RemoveOldDataEntries(limit time.Time) {
 	tx := configuration.DB.Begin()
 	// Searching for old data.
 	var oldData [](*Data)
