@@ -3,41 +3,8 @@ package model
 import (
 	"testing"
 	"configuration"
-	"io/ioutil"
-	"os"
 	"time"
 )
-
-// Statistical operations.
-var statMachine *StatisticalData
-
-// Database connection.
-var databaseConnection *configuration.DatabaseConnection
-
-// Scheduling of setup, unit tests and tear-down functions. See testing.M
-// Parameter m *testing.M - unit tests machine.
-func TestMain(m *testing.M) {
-	setUp()
-	retCode := m.Run()
-	tearDown()
-	os.Exit(retCode)
-}
-
-// Unit tests preparation - initialisation of logging and database unit.
-//
-func setUp() {
-	configuration.LoggingInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr)
-	databaseConnection = configuration.NewDatabaseConnection()
-	databaseConnection.ConnectDatabaseFromTest(2)
-	statMachine = NewStatisticalData()
-}
-
-// Cleaning after performing unit tests - closing of the database connection.
-//
-func tearDown() {
-	cleanDatabases(nil)
-	databaseConnection.CloseDatabase()
-}
 
 // Cleaning of the database - removing and recreating of all relations.
 // Parameter t *testing.T - testing engine.
@@ -80,11 +47,12 @@ func TestModifyDataType(t *testing.T) {
 	cleanDatabases(t)
 
 	t.Log("Writing of a new data type ...")
+	id := uint(100)
 	name := "Type01"
 	networkProtocol := 8000
 	transportProtocol := 45
 	port := 8080
-	dataType := DataType{Name: name, Forecasting: false, NetworkProtocol: uint(networkProtocol),
+	dataType := DataType{ID: id, Name: name, Forecasting: false, NetworkProtocol: uint(networkProtocol),
 		TransportProtocol: uint(transportProtocol), Port: uint(port)}
 	writeDataType(&dataType, t)
 
@@ -92,7 +60,7 @@ func TestModifyDataType(t *testing.T) {
 	newName := "mod"
 	newFormat := DataType{Name: newName, NetworkProtocol: 100, TransportProtocol: 20,
 		Port: 22, Forecasting: true}
-	err02 := statMachine.ModifyDataType(name, &newFormat)
+	err02 := statMachine.ModifyDataType(id, &newFormat)
 
 	t.Log("Checking of the modified data type ...")
 	if err02 != nil {
@@ -116,20 +84,21 @@ func TestModifyDataType(t *testing.T) {
 	tx.Commit()
 
 	t.Log("Writing of another data type ...")
+	nextId := uint(120)
 	nextName := "TypeX"
 	nextDataType := DataType{Name: nextName, NetworkProtocol: 10, TransportProtocol: 10, Port: 10}
 	writeDataType(&nextDataType, t)
 
 	t.Log("Writing of invalid modifications (failed unique constraint) ...")
 	mod01 := DataType{Name: nextName}
-	err05 := statMachine.ModifyDataType(newName, &mod01)
+	err05 := statMachine.ModifyDataType(nextId, &mod01)
 	if err05 == nil {
 		t.Errorf("Expected error during writing of new data type (unique constrain failed), " +
 			"but got nil error.")
 	}
 	mod02 := DataType{Name: "wtf", NetworkProtocol: uint(networkProtocol),
 		TransportProtocol: uint(transportProtocol), Port: uint(port)}
-	err06 := statMachine.ModifyDataType(nextName, &mod02)
+	err06 := statMachine.ModifyDataType(nextId, &mod02)
 	if err06 == nil {
 		t.Errorf("Expected error during writing of new data type (unique constrain failed), " +
 			"but got nil error.")
@@ -153,7 +122,7 @@ func TestWriteNewDataType(t *testing.T) {
 	}
 	errorsListX := make([]error, len(dataTypes))
 	for i, dataType := range dataTypes {
-		errorsListX[i] = statMachine.WriteNewDataType(&dataType)
+		_, errorsListX[i] = statMachine.WriteNewDataType(&dataType)
 	}
 
 	t.Log("Checking of errors after writing some new data types ...")
@@ -258,11 +227,12 @@ func TestGetDataType(t *testing.T) {
 	cleanDatabases(t)
 
 	t.Log("Writing of a new data type ...")
+	id := uint(25)
 	name := "Type01"
 	networkProtocol := 8000
 	transportProtocol := 45
 	port := 8080
-	dataType := DataType{Name: name, Forecasting: false, NetworkProtocol: uint(networkProtocol),
+	dataType := DataType{ID: id, Name: name, Forecasting: false, NetworkProtocol: uint(networkProtocol),
 		TransportProtocol: uint(transportProtocol), Port: uint(port)}
 	tx := configuration.DB.Begin()
 	err := tx.Create(&dataType).Error
@@ -272,9 +242,9 @@ func TestGetDataType(t *testing.T) {
 	}
 	tx.Commit()
 
-	t.Log("Reading of the data type by name ...")
+	t.Log("Reading of the data type by id ...")
 	tx = configuration.DB.Begin()
-	fetchedDataType, err01 := statMachine.GetDataType(name)
+	fetchedDataType, err01 := statMachine.GetDataType(id)
 	if err01 != nil {
 		t.Errorf("An error occured during reading of the data type from datatabase: %s", err)
 	}
@@ -290,10 +260,10 @@ func TestGetDataType(t *testing.T) {
 	}
 	tx.Commit()
 
-	t.Log("Testing fetching of invalid data type (by name) ...")
+	t.Log("Testing fetching of invalid data type (by id) ...")
 	tx = configuration.DB.Begin()
-	invalidName := "invalid"
-	_, err02 := statMachine.GetDataType(invalidName)
+	invalidId := uint(45)
+	_, err02 := statMachine.GetDataType(invalidId)
 	if err02 == nil {
 		t.Errorf("An error is expected during reading of unknown data type from database but nil " +
 			"error is thrown.")
@@ -308,8 +278,9 @@ func TestRemoveDataType(t *testing.T) {
 	cleanDatabases(t)
 
 	t.Log("Writing of a new data type ...")
+	dataTypeId := uint(77)
 	dataTypeName := "XXX"
-	dataType := DataType{Name: dataTypeName}
+	dataType := DataType{ID: dataTypeId, Name: dataTypeName}
 	writeDataType(&dataType, t)
 
 	t.Log("Writing of some data ...")
@@ -323,7 +294,7 @@ func TestRemoveDataType(t *testing.T) {
 	createAssociationDataTypeData(&dataType, &data, t)
 
 	t.Log("Removing of the data type ...")
-	err02 := statMachine.RemoveDataType(dataTypeName)
+	_, err02 := statMachine.RemoveDataType(dataTypeId)
 	if err02 != nil {
 		t.Errorf("The removal of the data type failed: %s", err02)
 	}
@@ -339,7 +310,7 @@ func TestRemoveDataType(t *testing.T) {
 	}
 
 	t.Log("Removing of invalid data type ...")
-	err := statMachine.RemoveDataType("invalid")
+	_, err := statMachine.RemoveDataType(989)
 	if err == nil {
 		t.Errorf("Expected error during removing of unknown data type but got nil error.")
 	}

@@ -16,5 +16,10 @@
 	</PredictionConfiguration>
 	<RestConfiguration>
 		<LocalhostPort>8080</LocalhostPort>
+		<PathGetDataTypes>/datatype/list</PathGetDataTypes>
+		<PathGetDataType>/datatype/detail/:id</PathGetDataType>
+		<PathRemoveDataType>/datatype/delete/:id</PathRemoveDataType>
+		<PathWriteNewDataType>/datatype/create</PathWriteNewDataType>
+		<PathModifyDataType>/datatype/modify/:id</PathModifyDataType>
 	</RestConfiguration>
 </ConfigData>

@@ -120,72 +120,82 @@ func (StatisticalData *StatisticalData) WriteNewDataEntries(rawData *[](*RawData
 // Parameter dataType *DataType - information about data type that is going to be saved into the database
 // (without id). Data type must be unique by name and group of three information: port, network, and
 // transport protocol. See DataType.
+// Returning *DataType - Data type with assigned ID.
 // Returning error - The data type is not unique.
-func (StatisticalData *StatisticalData) WriteNewDataType(dataType *DataType) error {
+func (StatisticalData *StatisticalData) WriteNewDataType(dataType *DataType) (*DataType, error) {
 	tx := configuration.DB.Begin()
 	err01 := checkDataType(dataType)
-
 	if err01 != nil {
 		tx.Rollback()
-		return err01
+		fmt.Println(err01)
+		return nil, err01
 	}
 	err02 := tx.Create(dataType).Error
 	if err02 != nil {
 		tx.Rollback()
 		if strings.HasPrefix(err02.Error(),"UNIQUE constraint failed") {
-			var compositeError configuration.CompositeError
+			compositeError := configuration.NewCompositeError()
 			compositeError.AddError(1, fmt.Sprintf("Cannot insert a new data type into " +
-				"the database: %s", err02))
-			return compositeError.Evaluate()
-		} else {
-			configuration.Error.Panic("Cannot insert a new data type into the database: ", err02)
-		}
-	}
-	tx.Commit()
-	return nil
-}
-
-// Reading of information about data type by input name.
-// Parameter name string - name of data type.
-// Returning *DataType - read information about data type or nil if the error is not nil. See DataType.
-// Returning error - Data type doesn't exist or nil if there is not error.
-func (StatisticalData *StatisticalData) GetDataType(name string) (*DataType, error) {
-	tx := configuration.DB.Begin()
-	dataType := DataType{Name: name}
-	err := tx.Where(&dataType).First(&dataType).Error
-	if err != nil {
-		tx.Rollback()
-		if strings.HasSuffix(err.Error(),"record not found") {
-			var compositeError configuration.CompositeError
-			compositeError.AddError(1, fmt.Sprintf("The data type with specified name cannot " +
-				"be found: %s", err))
+				"the database, data type: %v: %s", *dataType, err02))
 			return nil, compositeError.Evaluate()
 		} else {
-			configuration.Error.Panic("Searching of the data type failed: ", err)
+			configuration.Error.Panic("Cannot insert a new data type into the database, data type: ",
+				*dataType, ": ", err02)
 		}
 	}
 	tx.Commit()
-	return &dataType, nil
+	return dataType, nil
+}
+
+// Reading of information about data type by input ID.
+// Parameter id uint - unique id of data type.
+// Returning *DataType - read information about data type or nil if the error is not nil. See DataType.
+// Returning error - Data type doesn't exist or nil if there is not error.
+func (StatisticalData *StatisticalData) GetDataType(id uint) (*DataType, error) {
+	if id != 0 {
+		tx := configuration.DB.Begin()
+		dataType := DataType{ID: id}
+		err := tx.Where(&dataType).First(&dataType).Error
+		if err != nil {
+			tx.Rollback()
+			if strings.HasSuffix(err.Error(),"record not found") {
+				compositeError := configuration.NewCompositeError()
+				compositeError.AddError(1, fmt.Sprintf("The data type with specified id cannot " +
+					"be found, data type id: %d: %s", id, err))
+				return nil, compositeError.Evaluate()
+			} else {
+				configuration.Error.Panic("Searching of the data type failed, data type id: ", id, ": ", err)
+			}
+		}
+		tx.Commit()
+		return &dataType, nil
+	} else {
+		compositeError := configuration.NewCompositeError()
+		compositeError.AddError(1, fmt.Sprintf("The data type with specified id cannot " +
+			"be found, data type id: 0"))
+		return nil, compositeError.Evaluate()
+	}
 }
 
 // Altering of data type settings.
-// Parameter oldName string - unique name of data type that is going to be modified.
+// Parameter id uint - unique id of data type that is going to be modified.
 // Parameter dataType *DataType - modified data type (id cannot be changed). See DataType.
-// Returning error - the specified data type is not unique.
-func (StatisticalData *StatisticalData) ModifyDataType(oldName string, dataType *DataType) error {
+// Returning error - the specified data type is not unique or data type with specified id cannot be found.
+func (StatisticalData *StatisticalData) ModifyDataType(id uint, dataType *DataType) error {
 	tx := configuration.DB.Begin()
 	err01 := checkDataType(dataType)
 	if err01 != nil {
 		tx.Rollback()
 		return err01
 	}
-	// Searching for old data type id.
-	oldDataType := DataType{Name: oldName}
+	// Searching for old data type.
+	oldDataType := DataType{ID: id}
 	err02 := tx.Where(&oldDataType).First(&oldDataType).Error
 	if err02 != nil {
 		tx.Rollback()
-		var compositeError configuration.CompositeError
-		compositeError.AddError(1, fmt.Sprintf("Old data type cannot be identified: %s", err02))
+		compositeError := configuration.NewCompositeError()
+		compositeError.AddError(1, fmt.Sprintf("Old data type cannot be identified, data type " +
+			"id: %d: %s", id, err02))
 		return compositeError.Evaluate()
 	}
 	// Writing of data type modifications.
@@ -194,88 +204,75 @@ func (StatisticalData *StatisticalData) ModifyDataType(oldName string, dataType 
 	if err03 != nil {
 		tx.Rollback()
 		if strings.HasPrefix(err03.Error(),"UNIQUE constraint failed") {
-			var compositeError configuration.CompositeError
-			compositeError.AddError(1, fmt.Sprintf("Cannot update the data type: %s", err03))
+			compositeError := configuration.NewCompositeError()
+			compositeError.AddError(1, fmt.Sprintf("Cannot update the data type, data type " +
+				"id: %d: %s", id, err03))
 			return compositeError.Evaluate()
 		} else {
-			configuration.Error.Panic("Cannot update the data type: ", err03)
+			configuration.Error.Panic("Cannot update the data type, data type id: ", id, ": ", err03)
 		}
 	}
 	tx.Commit()
 	return nil
-}
-
-// Checking of the data type specification (fields format).
-// Parameter dataType *DataType - inspected data type. See DataType.
-// Returning error - indication of wrong format (one or more fields).
-func checkDataType(dataType *DataType) error {
-	var compositeError configuration.CompositeError
-	if len(dataType.Name) == 0 || len(dataType.Name) > 255 {
-		compositeError.AddError(1, fmt.Sprintf("data type name: %s: length of the name must be longer " +
-			"than 0 and shorter tham 256 characters", dataType.Name))
-	}
-	if dataType.Port > 65535 {
-		compositeError.AddError(1, fmt.Sprintf("data type port: %d: maximum value of the port identification" +
-			" is 65535", dataType.Port))
-	}
-	if dataType.TransportProtocol > 255 {
-		compositeError.AddError(1, fmt.Sprintf("data type transport protocol: %d: maximum value of the " +
-			"transport protocol identification is 255", dataType.TransportProtocol))
-	}
-	if dataType.NetworkProtocol > 65535 {
-		compositeError.AddError(1, fmt.Sprintf("data type network protocol: %d: maximum value of the " +
-			"network protocol identification is 255", dataType.NetworkProtocol))
-	}
-	finalError := compositeError.Evaluate()
-	return finalError
 }
 
 // Removal of the data type; afterwards removal of orphaned data.
-// Parameter name string - name of the data type that is going to be removed.
+// Parameter id uint - id of the data type that is going to be removed.
+// Returning *DataType - removed data type. See DataType.
 // Returning error - data type with given name cannot be found.
-func (StatisticalData *StatisticalData) RemoveDataType(name string) error {
-	tx := configuration.DB.Begin()
-	dataType := DataType{Name: name}
-	tx.Where(&dataType).First(&dataType)
-	if dataType.ID == 0 {
-		var compositeError configuration.CompositeError
-		compositeError.AddError(1, fmt.Sprintf("The data type with given name doesn't exist: %s", name))
-		tx.Rollback()
-		return compositeError.Evaluate()
-	} else {
-		// Searching for related data.
-		var data [](*Data)
-		err01 := tx.Model(&dataType).Association("Data").Find(&data).Error
+func (StatisticalData *StatisticalData) RemoveDataType(id uint) (*DataType, error) {
+	if id != 0 {
+		tx := configuration.DB.Begin()
+		dataType := DataType{ID: id}
+		err01 := tx.Where(&dataType).First(&dataType).Error
 		if err01 != nil {
+			compositeError := configuration.NewCompositeError()
+			compositeError.AddError(1, fmt.Sprintf("The data type with given id doesn't exist: %d: %s",
+				id, err01))
 			tx.Rollback()
-			configuration.Error.Panic("Data associated with the data type cannot be matched: ", err01)
-		}
-		// Removing of associations.
-		err02 := tx.Model(&dataType).Association("Data").Delete(&data).Error
-		if err02 != nil {
-			tx.Rollback()
-			configuration.Error.Panic("An association between data and types cannot be removed: ", err02)
-		}
-		// Removing of orphaned associated data.
-		for _, dataEntry := range data {
-			count := tx.Model(&dataEntry).Association("DataTypes").Count()
-			if count == 0 {
-				err03 := tx.Delete(&dataEntry).Error
-				if err03 != nil {
-					tx.Rollback()
-					configuration.Error.Panic("One of the data entries cannot be removed from database: ", err03)
+			return nil, compositeError.Evaluate()
+		} else {
+			// Searching for related data.
+			var data [](*Data)
+			err02 := tx.Model(&dataType).Association("Data").Find(&data).Error
+			if err01 != nil {
+				tx.Rollback()
+				configuration.Error.Panic("Data associated with the data type cannot be matched, data type id: ",
+					id, ": ", err02)
+			}
+			// Removing of associations.
+			err03 := tx.Model(&dataType).Association("Data").Delete(&data).Error
+			if err03 != nil {
+				tx.Rollback()
+				configuration.Error.Panic("An association between data and types cannot be removed, data type id: ",
+					id, ": ", err03)
+			}
+			// Removing of orphaned associated data.
+			for _, dataEntry := range data {
+				count := tx.Model(&dataEntry).Association("DataTypes").Count()
+				if count == 0 {
+					err04 := tx.Delete(&dataEntry).Error
+					if err04 != nil {
+						tx.Rollback()
+						configuration.Error.Panic("One of the data entries cannot be removed from database, " +
+							"data type id: ", id, ": ", err04)
+					}
 				}
 			}
+			// Removing of the data type.
+			err05 := tx.Delete(&dataType).Error
+			if err05 != nil {
+				tx.Rollback()
+				configuration.Error.Panic("Cannot delete an existing data type, data type id: ", id, ": ", err05)
+			}
 		}
-		// Removing of the data type.
-		err04 := tx.Delete(&dataType).Error
-		if err04 != nil {
-			tx.Rollback()
-			configuration.Error.Panic("Cannot delete an existing data type: ", err04)
-		}
+		tx.Commit()
+		return &dataType, nil
+	} else {
+		compositeError := configuration.NewCompositeError()
+		compositeError.AddError(1, fmt.Sprintf("The data type with given id doesn't exist: %d", id))
+		return nil, compositeError.Evaluate()
 	}
-	tx.Commit()
-	return nil
 }
 
 // Listing of all saved data types.
@@ -303,7 +300,7 @@ func (StatisticalData *StatisticalData) ListLastDataEntries(name string, limit t
 	dataType := DataType{Name: name}
 	tx.Where(&dataType).First(&dataType)
 	if dataType.ID == 0 {
-		var compositeError configuration.CompositeError
+		compositeError := configuration.NewCompositeError()
 		compositeError.AddError(1, fmt.Sprintf("The data type with given name doesn't exist: %s", name))
 		tx.Rollback()
 		return nil, compositeError.Evaluate()
@@ -353,4 +350,29 @@ func (StatisticalData *StatisticalData) RemoveOldDataEntries(limit time.Time) {
 		}
 	}
 	tx.Commit()
+}
+
+// Checking of the data type specification (fields format).
+// Parameter dataType *DataType - inspected data type. See DataType.
+// Returning error - indication of wrong format (one or more fields).
+func checkDataType(dataType *DataType) error {
+	compositeError := configuration.NewCompositeError()
+	if len(dataType.Name) == 0 || len(dataType.Name) > 255 {
+		compositeError.AddError(1, fmt.Sprintf("data type name: %s: length of the name must be longer " +
+			"than 0 and shorter than 256 characters", dataType.Name))
+	}
+	if dataType.Port > 65535 {
+		compositeError.AddError(1, fmt.Sprintf("data type port: %d: maximum value of the port identification" +
+			" is 65535", dataType.Port))
+	}
+	if dataType.TransportProtocol > 255 {
+		compositeError.AddError(1, fmt.Sprintf("data type transport protocol: %d: maximum value of the " +
+			"transport protocol identification is 255", dataType.TransportProtocol))
+	}
+	if dataType.NetworkProtocol > 65535 {
+		compositeError.AddError(1, fmt.Sprintf("data type network protocol: %d: maximum value of the " +
+			"network protocol identification is 65535", dataType.NetworkProtocol))
+	}
+	finalError := compositeError.Evaluate()
+	return finalError
 }

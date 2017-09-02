@@ -54,8 +54,18 @@ type PredictionConfiguration struct {
 
 // REST configuration.
 // Attribute LocalhostPort uint - listening TCP port (HTTP communication).
+// Attribute PathGetDataTypes string - Site: listing of all data types (GET).
+// Attribute PathGetDataType string - Site: fetching of information about one data type (GET).
+// Attribute PathRemoveDataType string - Site: removing of the specific data type (DELETE).
+// Attribute PathWriteNewDataType string - Site: creating of the new data type (POST).
+// Attribute PathModifyDataType string - Site: modifying of existing data type (POST).
 type RestConfiguration struct {
-	LocalhostPort		uint
+	LocalhostPort			uint
+	PathGetDataTypes		string
+	PathGetDataType			string
+	PathRemoveDataType		string
+	PathWriteNewDataType	string
+	PathModifyDataType		string
 }
 
 func NewConfigurationManager() *ConfigurationManager {
