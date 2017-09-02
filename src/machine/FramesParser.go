@@ -79,7 +79,7 @@ func processFrames(conf *model.NetworkConfiguration, statisticalData *model.Stat
 		case <- tickChannel:
 			// after data buffer time (ms), buffer is sent to next processing on the way to the database ...
 			framesBuffer = append(framesBuffer, &TimestampedFrame{Frame: &frameData, Time: time.Now()})
-			go sendDataToDatabase(framesBuffer)
+			go sendDataToDatabase(statisticalData, framesBuffer)
 			framesBuffer = [](*TimestampedFrame){}
 		default:
 			framesBuffer = append(framesBuffer, &TimestampedFrame{Frame: &frameData, Time: time.Now()})
