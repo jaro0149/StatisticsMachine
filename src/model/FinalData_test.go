@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func TestDataRouter_SetData(t *testing.T) {
+func TestDataRouterSetData(t *testing.T) {
 	t.Log("Final data preparation ...")
 	smoothedData := [](*FinalData){
 		&FinalData{DataElement: 10.0, Timestamp: time.Now()},
@@ -72,7 +72,7 @@ func TestDataRouter_SetData(t *testing.T) {
 	}
 }
 
-func TestDataRouter_RemoveData(t *testing.T) {
+func TestDataRouterRemoveData(t *testing.T) {
 	t.Log("Final data preparation ...")
 	smoothedData := [](*FinalData){
 		&FinalData{DataElement: 10.0, Timestamp: time.Now()},

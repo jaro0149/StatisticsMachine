@@ -29,11 +29,14 @@ type ConfigData struct {
 // Attribute ReadTimeout int - Reading timeout in milliseconds (reading from the network adapter buffer).
 // Attribute DataBuffer uint - Maximum amount of time (milliseconds) during which the caching buffer is
 // continuously filling before it is sent to the next processing (writing to the database is the last mile).
+// Attribute RouterMacAddress - Referencing mac address of router port (from this address, the flow direction is
+// determined).
 type NetworkConfiguration struct {
 	AdapterName 		string
 	MaximumFrameSize 	uint
 	ReadTimeout 		int
 	DataBuffer 			uint
+	RouterMacAddress	string
 }
 
 // Cleaning-based settings.

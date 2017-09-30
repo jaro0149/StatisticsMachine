@@ -37,7 +37,7 @@ func tearDown() {
 
 // Unit test - testing of data vector smoothing #1.
 // Parameter t *testing.T - testing engine.
-func TestPredictionCreator_SmoothData1(t *testing.T) {
+func TestPredictionCreatorSmoothData1(t *testing.T) {
 	t.Log("Initialisation of prediction configuration and data slice ...")
 	predictionCreator.predictionConfiguration.SmoothingRange = 5000
 	var dataSlice [](*model.Data)
@@ -77,7 +77,7 @@ func TestPredictionCreator_SmoothData1(t *testing.T) {
 
 // Unit test - testing of data vector smoothing #2.
 // Parameter t *testing.T - testing engine.
-func TestPredictionCreator_SmoothData2(t *testing.T) {
+func TestPredictionCreatorSmoothData2(t *testing.T) {
 	t.Log("Initialisation of prediction configuration and data slice ...")
 	predictionCreator.predictionConfiguration.SmoothingRange = 1000
 	var dataSlice [](*model.Data)
@@ -112,7 +112,7 @@ func TestPredictionCreator_SmoothData2(t *testing.T) {
 
 // Unit test - testing of data vector smoothing #3.
 // Parameter t *testing.T - testing engine.
-func TestPredictionCreator_SmoothData3(t *testing.T) {
+func TestPredictionCreatorSmoothData3(t *testing.T) {
 	t.Log("Initialisation of prediction configuration and data slice ...")
 	predictionCreator.predictionConfiguration.SmoothingRange = 1000
 	var dataSlice [](*model.Data)
@@ -147,7 +147,7 @@ func TestPredictionCreator_SmoothData3(t *testing.T) {
 
 // Unit test - testing of data vector smoothing #4.
 // Parameter t *testing.T - testing engine.
-func TestPredictionCreator_SmoothData4(t *testing.T) {
+func TestPredictionCreatorSmoothData4(t *testing.T) {
 	t.Log("Initialisation of prediction configuration and data slice ...")
 	predictionCreator.predictionConfiguration.SmoothingRange = 1000
 	var dataSlice [](*model.Data)

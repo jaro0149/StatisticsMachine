@@ -165,13 +165,13 @@ func TestWriteNewDataEntries(t *testing.T) {
 
 	t.Log("Writing of new raw data into the database ...")
 	rawData := []*RawData{
-		{Bytes: 8, NetworkProtocol: 45, TransportProtocol: 11, SrcPort: 2, DstPort: 2},
-		{Bytes: 15, NetworkProtocol: 200, TransportProtocol: 3, SrcPort: 15, DstPort: 15},
-		{Bytes: 789, NetworkProtocol: 200, TransportProtocol: 45, SrcPort: 80, DstPort: 80},
-		{Bytes: 454, NetworkProtocol: 200, TransportProtocol: 45, SrcPort: 8080, DstPort: 8080},
-		{Bytes: 1, NetworkProtocol: 200, TransportProtocol: 60, SrcPort: 45, DstPort: 45},
-		{Bytes: 2, NetworkProtocol: 450, TransportProtocol: 22, SrcPort: 8025, DstPort: 8025},
-		{Bytes: 1200, NetworkProtocol: 200, TransportProtocol: 45, SrcPort: 80, DstPort: 80}}
+		{Bytes: 8, NetworkProtocol: 45, TransportProtocol: 11, SrcPort: 2, DstPort: 2, Direction: 0},
+		{Bytes: 15, NetworkProtocol: 200, TransportProtocol: 3, SrcPort: 15, DstPort: 15, Direction: 0},
+		{Bytes: 789, NetworkProtocol: 200, TransportProtocol: 45, SrcPort: 80, DstPort: 80, Direction: 0},
+		{Bytes: 454, NetworkProtocol: 200, TransportProtocol: 45, SrcPort: 8080, DstPort: 8080, Direction: 0},
+		{Bytes: 1, NetworkProtocol: 200, TransportProtocol: 60, SrcPort: 45, DstPort: 45, Direction: 0},
+		{Bytes: 2, NetworkProtocol: 450, TransportProtocol: 22, SrcPort: 8025, DstPort: 8025, Direction: 0},
+		{Bytes: 1200, NetworkProtocol: 200, TransportProtocol: 45, SrcPort: 80, DstPort: 80, Direction: 0}}
 	statMachine.WriteNewDataEntries(&rawData)
 
 	t.Log("Searching for written data with filled IDs ...")
@@ -328,8 +328,8 @@ func TestListLastDataEntries(t *testing.T) {
 
 	t.Log("Writing of some data #1 ...")
 	data01 := [](*Data) {
-		&Data{Bytes: 10, Time: time.Now()},
-		&Data{Bytes: 10, Time: time.Now()},
+		&Data{Bytes: 10, Time: time.Now(), Direction: 0},
+		&Data{Bytes: 10, Time: time.Now(), Direction: 0},
 	}
 	writeData(&data01, t)
 
@@ -340,8 +340,8 @@ func TestListLastDataEntries(t *testing.T) {
 
 	t.Log("Writing of some data #2 ...")
 	data02 := [](*Data) {
-		&Data{Bytes: uint(dataBytes), Time: time.Now()},
-		&Data{Bytes: uint(dataBytes), Time: time.Now()},
+		&Data{Bytes: uint(dataBytes), Time: time.Now(), Direction: 0},
+		&Data{Bytes: uint(dataBytes), Time: time.Now(), Direction: 0},
 	}
 	writeData(&data02, t)
 
@@ -350,7 +350,7 @@ func TestListLastDataEntries(t *testing.T) {
 	createAssociationDataTypeData(&dataType, &data02, t)
 
 	t.Log("Fetching of last data entries ...")
-	lastData, err01 := statMachine.ListLastDataEntries(dataTypeName, timestamp)
+	lastData, err01 := statMachine.ListLastDataEntries(dataTypeName, timestamp, 0)
 	if err01 != nil {
 		t.Fatalf("Last data entries cannot be fetched from database: %s", err01)
 	}
@@ -369,7 +369,7 @@ func TestListLastDataEntries(t *testing.T) {
 	}
 
 	t.Log("Reading with the invalid data type ...")
-	_, err02 := statMachine.ListLastDataEntries("fake", timestamp)
+	_, err02 := statMachine.ListLastDataEntries("fake", timestamp, 1)
 	if err02 == nil {
 		t.Errorf("An error was expected during reading of last data entries bounded to " +
 			"invalid data type but nil error is thrown.")
@@ -389,8 +389,8 @@ func TestRemoveOldDataEntries(t *testing.T) {
 
 	t.Log("Writing of some data #1 ...")
 	data01 := [](*Data) {
-		&Data{Bytes: 10, Time: time.Now()},
-		&Data{Bytes: 10, Time: time.Now()},
+		&Data{Bytes: 10, Time: time.Now(), Direction: 1},
+		&Data{Bytes: 10, Time: time.Now(), Direction: 0},
 	}
 	writeData(&data01, t)
 
@@ -401,8 +401,8 @@ func TestRemoveOldDataEntries(t *testing.T) {
 
 	t.Log("Writing of some data #2 ...")
 	data02 := [](*Data) {
-		&Data{Bytes: uint(dataBytes), Time: time.Now()},
-		&Data{Bytes: uint(dataBytes), Time: time.Now()},
+		&Data{Bytes: uint(dataBytes), Time: time.Now(), Direction: 0},
+		&Data{Bytes: uint(dataBytes), Time: time.Now(), Direction: 1},
 	}
 	writeData(&data02, t)
 

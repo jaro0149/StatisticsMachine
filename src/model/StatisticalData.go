@@ -5,12 +5,15 @@ import (
 	"configuration"
 	"strings"
 	"fmt"
+	"sync"
 )
 
 // Attribute DatabaseConnection *configuration.DatabaseConnection - database connection manager.
+// Attribute mutex *sync.Mutex - synchronisation of access to data table (bug in sqlite3).
 // See *configuration.DatabaseConnection.
 type StatisticalData struct {
-	DatabaseConnection *configuration.DatabaseConnection
+	DatabaseConnection 	*configuration.DatabaseConnection
+	mutex				*sync.Mutex
 }
 
 // Data represents structure of information that is stored for matching incoming frames.
@@ -20,11 +23,13 @@ type StatisticalData struct {
 // Attribute Bytes uint - number of captured bytes (whole frame).
 // Attribute DataTypes *([]*DataType) - list of data types that describe this data entry (many-to-many).
 // See DataType.
+// Attribute Direction uint - RX (0) or TX (1) direction of flow.
 type Data struct {
 	ID 					uint			`gorm:"primary_key;AUTO_INCREMENT"`
 	Time				time.Time		`gorm:"not null;default:CURRENT_TIMESTAMP"`
 	Bytes				uint			`gorm:"not null"`
 	DataTypes			*([]*DataType)	`gorm:"many2many:data_to_types"`
+	Direction			uint			`gorm:"not null"`
 }
 
 // Description of the data type.
@@ -47,10 +52,11 @@ type DataType struct {
 
 // This structure represents information that are used for inserting new data into Data relation.
 // Attribute Bytes uint - number of captured bytes (whole frame).
-// NetworkProtocol uint - EthernetType field from Ethernet2 frame (decimal value).
-// TransportProtocol uint - Protocol field from IPv4 / IPv6 packet (decimal value).
-// SrcPort uint - TCP / UDP source port number.
-// DstPort uint - TCP / UDP destination port number.
+// Attribute NetworkProtocol uint - EthernetType field from Ethernet2 frame (decimal value).
+// Attribute TransportProtocol uint - Protocol field from IPv4 / IPv6 packet (decimal value).
+// Attribute SrcPort uint - TCP / UDP source port number.
+// Attribute DstPort uint - TCP / UDP destination port number.
+// Attribute Direction uint - RX (0) or TX (1) direction of flow.
 type RawData struct {
 	Bytes				uint
 	NetworkProtocol		uint
@@ -58,6 +64,7 @@ type RawData struct {
 	SrcPort				uint
 	DstPort				uint
 	Time				time.Time
+	Direction			uint
 }
 
 // Creating of StatisticalData instance.
@@ -66,6 +73,7 @@ type RawData struct {
 func NewStatisticalData(databaseConnection *configuration.DatabaseConnection) *StatisticalData {
 	statisticalData := StatisticalData{
 		DatabaseConnection: databaseConnection,
+		mutex: &sync.Mutex{},
 	}
 	return &statisticalData
 }
@@ -86,6 +94,7 @@ func (StatisticalData *StatisticalData) TablesInit() {
 // Parameter rawData *[](*RawData) - list of data that is going to be written into the database.
 // See RawData
 func (StatisticalData *StatisticalData) WriteNewDataEntries(rawData *[](*RawData)) {
+	StatisticalData.mutex.Lock()
 	if len(*rawData) != 0 {
 		tx := StatisticalData.DatabaseConnection.DB.Begin()
 		for _, data := range *rawData {
@@ -105,7 +114,7 @@ func (StatisticalData *StatisticalData) WriteNewDataEntries(rawData *[](*RawData
 			}
 			// There is at least one matching data type. Now it is needed to write new data entry.
 			if len(dataTypes) != 0 {
-				newData := Data{Bytes: data.Bytes, Time: data.Time}
+				newData := Data{Bytes: data.Bytes, Time: data.Time, Direction: data.Direction}
 				err02 := tx.Create(&newData).Error
 				if err02 != nil {
 					tx.Rollback()
@@ -122,6 +131,7 @@ func (StatisticalData *StatisticalData) WriteNewDataEntries(rawData *[](*RawData
 			}
 		}
 		tx.Commit()
+		StatisticalData.mutex.Unlock()
 	}
 }
 
@@ -136,7 +146,6 @@ func (StatisticalData *StatisticalData) WriteNewDataType(dataType *DataType) (*D
 	err01 := checkDataType(dataType)
 	if err01 != nil {
 		tx.Rollback()
-		fmt.Println(err01)
 		return nil, err01
 	}
 	err02 := tx.Create(dataType).Error
@@ -301,9 +310,11 @@ func (StatisticalData *StatisticalData) ListDataTypes() *[](*DataType) {
 // Searching for the most recent data entries of specific type.
 // Parameter name string - name of the data type.
 // Parameter limit time.Time - only data entries older than limit are returned. See time.Time.
+// Parameter direction uint - only RX (0) or TX (1) data entries are returned.
 // Returning *[](*Data) - data entries (references). See Data.
 // Returning error - Non-nil error is returned if the data type with selected name doesn't exist.
-func (StatisticalData *StatisticalData) ListLastDataEntries(name string, limit time.Time) (*[](*Data), error) {
+func (StatisticalData *StatisticalData) ListLastDataEntries(name string, limit time.Time, direction uint) (
+	*[](*Data), error) {
 	tx := StatisticalData.DatabaseConnection.DB.Begin()
 	var finalData [](*Data)
 	dataType := DataType{Name: name}
@@ -316,7 +327,7 @@ func (StatisticalData *StatisticalData) ListLastDataEntries(name string, limit t
 	} else {
 		err := tx.Model(&dataType).
 			Order("time asc").
-			Where("time > ?", limit).
+			Where("time > ? AND direction == ?", limit, direction).
 			Association("Data").
 			Find(&finalData).Error
 		if err != nil {
