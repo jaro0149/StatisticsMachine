@@ -49,7 +49,7 @@ func (RestController *RestController) StartRestController() {
 		startingPath := fmt.Sprintf("localhost:%d", RestController.restConfiguration.LocalhostPort)
 		err := http.ListenAndServe(startingPath, r)
 		if err != nil {
-			configuration.Error.Fatalf("REST server cannot be started: %s", err)
+			configuration.Error.Panicf("REST server cannot be started: %v", err)
 		}
 	}
 	go fireUpServices()

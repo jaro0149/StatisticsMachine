@@ -2,18 +2,17 @@ package model
 
 import (
 	"testing"
-	"configuration"
 	"time"
 )
 
 // Cleaning of the database - removing and recreating of all relations.
 // Parameter t *testing.T - testing engine.
 func cleanDatabases(t *testing.T) {
-	err01 := configuration.DB.DropTableIfExists(&Data{}, &DataType{}, "data_to_types").Error
+	err01 := databaseConnection.DB.DropTableIfExists(&Data{}, &DataType{}, "data_to_types").Error
 	if err01 != nil {
 		t.Fatalf("Test failed while cleaning database: %s", err01)
 	}
-	err02 := configuration.DB.AutoMigrate(&DataType{}, &Data{}).Error
+	err02 := databaseConnection.DB.AutoMigrate(&DataType{}, &Data{}).Error
 	if err02 != nil {
 		t.Fatalf("Golang data model cannot be migrated to SQL: %s", err02)
 	}
@@ -26,15 +25,15 @@ func TestTablesInit(t *testing.T) {
 	statMachine.TablesInit()
 
 	t.Log("Checking of created tables ...")
-	dataCheck := configuration.DB.HasTable(&Data{})
+	dataCheck := databaseConnection.DB.HasTable(&Data{})
 	if !dataCheck {
 		t.Errorf("Table 'data' hasn't been created.")
 	}
-	dataTypeCheck := configuration.DB.HasTable(&DataType{})
+	dataTypeCheck := databaseConnection.DB.HasTable(&DataType{})
 	if !dataTypeCheck {
 		t.Errorf("Table 'data_types' hasn't been created.")
 	}
-	dataToTypesCheck := configuration.DB.HasTable("data_to_types")
+	dataToTypesCheck := databaseConnection.DB.HasTable("data_to_types")
 	if !dataToTypesCheck {
 		t.Errorf("Table 'data_to_types' hasn't been created.")
 	}
@@ -66,7 +65,7 @@ func TestModifyDataType(t *testing.T) {
 	if err02 != nil {
 		t.Fatalf("The error was thrown while modifying of the data type: %s", err02)
 	}
-	tx := configuration.DB.Begin()
+	tx := databaseConnection.DB.Begin()
 	var foundDataType DataType
 	err03 := tx.Where(&DataType{Name: newName}).First(&foundDataType).Error
 	if err03 != nil {
@@ -136,7 +135,7 @@ func TestWriteNewDataType(t *testing.T) {
 
 	t.Log("Checking count of data types ...")
 	expectedCount := 3
-	tx := configuration.DB.Begin()
+	tx := databaseConnection.DB.Begin()
 	var realCount int
 	err01 := tx.Model(&DataType{}).Count(&realCount).Error
 	if err01 != nil {
@@ -179,7 +178,7 @@ func TestWriteNewDataEntries(t *testing.T) {
 	completedData := getAllData(t)
 
 	t.Log("Verification of written data ...")
-	tx := configuration.DB.Begin()
+	tx := databaseConnection.DB.Begin()
 	trueCounts := []int{1, 2, 3, 4, 2, 1, 3}
 	for i := range trueCounts {
 		var associatedTypes []DataType
@@ -234,7 +233,7 @@ func TestGetDataType(t *testing.T) {
 	port := 8080
 	dataType := DataType{ID: id, Name: name, Forecasting: false, NetworkProtocol: uint(networkProtocol),
 		TransportProtocol: uint(transportProtocol), Port: uint(port)}
-	tx := configuration.DB.Begin()
+	tx := databaseConnection.DB.Begin()
 	err := tx.Create(&dataType).Error
 	if err != nil {
 		tx.Rollback()
@@ -243,7 +242,7 @@ func TestGetDataType(t *testing.T) {
 	tx.Commit()
 
 	t.Log("Reading of the data type by id ...")
-	tx = configuration.DB.Begin()
+	tx = databaseConnection.DB.Begin()
 	fetchedDataType, err01 := statMachine.GetDataType(id)
 	if err01 != nil {
 		t.Errorf("An error occured during reading of the data type from datatabase: %s", err)
@@ -261,7 +260,7 @@ func TestGetDataType(t *testing.T) {
 	tx.Commit()
 
 	t.Log("Testing fetching of invalid data type (by id) ...")
-	tx = configuration.DB.Begin()
+	tx = databaseConnection.DB.Begin()
 	invalidId := uint(45)
 	_, err02 := statMachine.GetDataType(invalidId)
 	if err02 == nil {
@@ -431,7 +430,7 @@ func TestRemoveOldDataEntries(t *testing.T) {
 	}
 
 	t.Log("Checking of associations ...")
-	tx := configuration.DB.Begin()
+	tx := databaseConnection.DB.Begin()
 	var associatedData [](*Data)
 	err := tx.Model(&dataType).Association("Data").Find(&associatedData).Error
 	if err != nil {
@@ -451,9 +450,9 @@ func TestRemoveOldDataEntries(t *testing.T) {
 // Parameter dataTypes *[](*DataType) - the slice with data types.
 // Parameter t *testing.T - testing engine.
 func writeNewDataTypes(dataTypes *[](*DataType), t *testing.T) {
-	tx := configuration.DB.Begin()
+	tx := databaseConnection.DB.Begin()
 	for _, dataType := range *dataTypes {
-		err := configuration.DB.Create(dataType).Error
+		err := databaseConnection.DB.Create(dataType).Error
 		if err != nil {
 			tx.Rollback()
 			t.Fatalf("Test failed while creating of new data types: %s", err)
@@ -466,7 +465,7 @@ func writeNewDataTypes(dataTypes *[](*DataType), t *testing.T) {
 // Parameter t *testing.T - testing engine.
 // Returning *[](*Data) - fetched data entries.
 func getAllData(t *testing.T) *[](*Data) {
-	tx := configuration.DB.Begin()
+	tx := databaseConnection.DB.Begin()
 	var data []*Data
 	err := tx.Order("id asc").Find(&data).Error
 	if err != nil {
@@ -481,7 +480,7 @@ func getAllData(t *testing.T) *[](*Data) {
 // Parameter t *testing.T - testing engine.
 // Returning *[](*DataType) - slice filled with all data types.
 func getAllDataTypes(t *testing.T) *[](*DataType) {
-	tx := configuration.DB.Begin()
+	tx := databaseConnection.DB.Begin()
 	var dataTypes [](*DataType)
 	err := tx.Find(&dataTypes).Error
 	if err != nil {
@@ -496,7 +495,7 @@ func getAllDataTypes(t *testing.T) *[](*DataType) {
 // Parameter dataType *DataType - data type entry.
 // Parameter t *testing.T - testing engine.
 func writeDataType(dataType *DataType, t *testing.T) {
-	tx := configuration.DB.Begin()
+	tx := databaseConnection.DB.Begin()
 	err := tx.Create(dataType).Error
 	if err != nil {
 		tx.Rollback()
@@ -509,7 +508,7 @@ func writeDataType(dataType *DataType, t *testing.T) {
 // Parameter data *[](*Data) - data that is going to be written into the database.
 // Parameter t *testing.T - testing engine.
 func writeData(data *[](*Data), t* testing.T) {
-	tx := configuration.DB.Begin()
+	tx := databaseConnection.DB.Begin()
 	for _,d := range *data {
 		err := tx.Create(&d).Error
 		if err != nil {
@@ -525,7 +524,7 @@ func writeData(data *[](*Data), t* testing.T) {
 // Parameter data *[](*Data) - sample data entries.
 // Parameter t *testing.T - testing engine.
 func createAssociationDataTypeData(dataType *DataType, data *[](*Data), t *testing.T) {
-	tx := configuration.DB.Begin()
+	tx := databaseConnection.DB.Begin()
 	err := tx.Model(dataType).Association("Data").Append(data).Error
 	if err != nil {
 		tx.Rollback()

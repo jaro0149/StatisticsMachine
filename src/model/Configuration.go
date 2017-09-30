@@ -9,16 +9,17 @@ import (
 type ConfigurationManager struct {}
 
 // The struct of configuration file.
-// Attribute NetworkConfiguration NetworkConfiguration - network-based settings.
-// See NetworkConfiguration.
+// Attribute NetworkConfiguration - network-based settings.
 // Attribute CleaningConfiguration - settings that relate with periodical cleaning of old data entries.
 // Attribute PredictionConfiguration - setting that relate with smoothing and forecasting model.
 // Attribute RestConfiguration - settings that relate with routing.
+// Attribute RServerConfiguration - configuration of connection to R server.
 type ConfigData struct {
 	NetworkConfiguration 	NetworkConfiguration
 	CleaningConfiguration 	CleaningConfiguration
 	PredictionConfiguration PredictionConfiguration
 	RestConfiguration		RestConfiguration
+	RServerConfiguration	RServerConfiguration
 }
 
 // Network-based settings.
@@ -36,8 +37,8 @@ type NetworkConfiguration struct {
 }
 
 // Cleaning-based settings.
-// Attribute CleaningInterval uint - attribute specifies how often should old data entries be removed (seconds).
-// Attribute CleaningDepth uint - only data entries that are older than this treshhold are removed (seconds).
+// Attribute CleaningInterval uint - attribute specifies how often should old data entries be removed (ms).
+// Attribute CleaningDepth uint - only data entries that are older than this treshhold are removed (ms).
 type CleaningConfiguration struct {
 	CleaningInterval 	uint
 	CleaningDepth 		uint
@@ -68,6 +69,12 @@ type RestConfiguration struct {
 	PathModifyDataType		string
 }
 
+// R server configuration (statistical tool).
+// Attribute LocalhostPort uint - listening TCP port (HTTP communication).
+type RServerConfiguration struct {
+	LocalhostPort		uint
+}
+
 func NewConfigurationManager() *ConfigurationManager {
 	return &ConfigurationManager{}
 }
@@ -78,11 +85,11 @@ func (ConfigurationManager *ConfigurationManager) ReadConfiguration() ConfigData
 	xmlInstance := configuration.NewConfigFileAccessor()
 	xmlInstance.OpenXmlConfigurationFile()
 	defer xmlInstance.CloseConfigurationFile()
-	xmlFileData, _ := ioutil.ReadAll(configuration.XmlFile)
+	xmlFileData, _ := ioutil.ReadAll(xmlInstance.XmlFile)
 	var configData ConfigData
 	err := xml.Unmarshal(xmlFileData, &configData)
 	if err != nil {
-		configuration.Error.Fatal("Error occurred during unmarshaling of XML: ", err)
+		configuration.Error.Panicf("Error occurred during unmarshaling of XML %v: ", err)
 	}
 	return configData
 }

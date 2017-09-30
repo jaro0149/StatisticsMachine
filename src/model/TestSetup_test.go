@@ -31,7 +31,7 @@ func setUp() {
 	configuration.LoggingInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr)
 	databaseConnection = configuration.NewDatabaseConnection()
 	databaseConnection.ConnectDatabaseFromTest(2)
-	statMachine = NewStatisticalData()
+	statMachine = NewStatisticalData(databaseConnection)
 	dataRouter = NewDataRouter()
 }
 

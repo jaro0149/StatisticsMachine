@@ -188,3 +188,7 @@ func findPartsCount(conf *model.PredictionConfiguration, dataSlice *[](*model.Da
 	}
 	return parts
 }
+
+func (PredictionCreator *PredictionCreator) PredictData(dataSlice *[](*model.Data)) (*[](*model.FinalData)) {
+	return nil
+}

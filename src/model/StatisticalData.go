@@ -7,7 +7,11 @@ import (
 	"fmt"
 )
 
-type StatisticalData struct {}
+// Attribute DatabaseConnection *configuration.DatabaseConnection - database connection manager.
+// See *configuration.DatabaseConnection.
+type StatisticalData struct {
+	DatabaseConnection *configuration.DatabaseConnection
+}
 
 // Data represents structure of information that is stored for matching incoming frames.
 // Attribute ID uint - unique identification of data entry.
@@ -57,15 +61,20 @@ type RawData struct {
 }
 
 // Creating of StatisticalData instance.
-func NewStatisticalData() *StatisticalData {
-	return &StatisticalData{}
+// Parameter databaseConnection *configuration.DatabaseConnection - database connection manager.
+// See *configuration.DatabaseConnection.
+func NewStatisticalData(databaseConnection *configuration.DatabaseConnection) *StatisticalData {
+	statisticalData := StatisticalData{
+		DatabaseConnection: databaseConnection,
+	}
+	return &statisticalData
 }
 
 // Initialisation of database relations or tables if they haven't already been created.
 //
 func (StatisticalData *StatisticalData) TablesInit() {
 	configuration.Info.Println("Initialisation of the database relations.")
-	err := configuration.DB.AutoMigrate(&DataType{}, &Data{}).Error
+	err := StatisticalData.DatabaseConnection.DB.AutoMigrate(&DataType{}, &Data{}).Error
 	if err != nil {
 		configuration.Error.Panic("Golang data model cannot be migrated to SQL: ", err)
 	}
@@ -78,7 +87,7 @@ func (StatisticalData *StatisticalData) TablesInit() {
 // See RawData
 func (StatisticalData *StatisticalData) WriteNewDataEntries(rawData *[](*RawData)) {
 	if len(*rawData) != 0 {
-		tx := configuration.DB.Begin()
+		tx := StatisticalData.DatabaseConnection.DB.Begin()
 		for _, data := range *rawData {
 			// Searching for data types that match input data.
 			var dataTypes [](*DataType)
@@ -123,7 +132,7 @@ func (StatisticalData *StatisticalData) WriteNewDataEntries(rawData *[](*RawData
 // Returning *DataType - Data type with assigned ID.
 // Returning error - The data type is not unique.
 func (StatisticalData *StatisticalData) WriteNewDataType(dataType *DataType) (*DataType, error) {
-	tx := configuration.DB.Begin()
+	tx := StatisticalData.DatabaseConnection.DB.Begin()
 	err01 := checkDataType(dataType)
 	if err01 != nil {
 		tx.Rollback()
@@ -153,7 +162,7 @@ func (StatisticalData *StatisticalData) WriteNewDataType(dataType *DataType) (*D
 // Returning error - Data type doesn't exist or nil if there is not error.
 func (StatisticalData *StatisticalData) GetDataType(id uint) (*DataType, error) {
 	if id != 0 {
-		tx := configuration.DB.Begin()
+		tx := StatisticalData.DatabaseConnection.DB.Begin()
 		dataType := DataType{ID: id}
 		err := tx.Where(&dataType).First(&dataType).Error
 		if err != nil {
@@ -182,7 +191,7 @@ func (StatisticalData *StatisticalData) GetDataType(id uint) (*DataType, error) 
 // Parameter dataType *DataType - modified data type (id cannot be changed). See DataType.
 // Returning error - the specified data type is not unique or data type with specified id cannot be found.
 func (StatisticalData *StatisticalData) ModifyDataType(id uint, dataType *DataType) error {
-	tx := configuration.DB.Begin()
+	tx := StatisticalData.DatabaseConnection.DB.Begin()
 	err01 := checkDataType(dataType)
 	if err01 != nil {
 		tx.Rollback()
@@ -222,7 +231,7 @@ func (StatisticalData *StatisticalData) ModifyDataType(id uint, dataType *DataTy
 // Returning error - data type with given name cannot be found.
 func (StatisticalData *StatisticalData) RemoveDataType(id uint) (*DataType, error) {
 	if id != 0 {
-		tx := configuration.DB.Begin()
+		tx := StatisticalData.DatabaseConnection.DB.Begin()
 		dataType := DataType{ID: id}
 		err01 := tx.Where(&dataType).First(&dataType).Error
 		if err01 != nil {
@@ -278,7 +287,7 @@ func (StatisticalData *StatisticalData) RemoveDataType(id uint) (*DataType, erro
 // Listing of all saved data types.
 // Returning *[](*DataType) - list of all data types with their description. See DataType.
 func (StatisticalData *StatisticalData) ListDataTypes() *[](*DataType) {
-	tx := configuration.DB.Begin()
+	tx := StatisticalData.DatabaseConnection.DB.Begin()
 	var dataTypes [](*DataType)
 	err := tx.Find(&dataTypes).Error
 	if err != nil {
@@ -295,7 +304,7 @@ func (StatisticalData *StatisticalData) ListDataTypes() *[](*DataType) {
 // Returning *[](*Data) - data entries (references). See Data.
 // Returning error - Non-nil error is returned if the data type with selected name doesn't exist.
 func (StatisticalData *StatisticalData) ListLastDataEntries(name string, limit time.Time) (*[](*Data), error) {
-	tx := configuration.DB.Begin()
+	tx := StatisticalData.DatabaseConnection.DB.Begin()
 	var finalData [](*Data)
 	dataType := DataType{Name: name}
 	tx.Where(&dataType).First(&dataType)
@@ -322,7 +331,7 @@ func (StatisticalData *StatisticalData) ListLastDataEntries(name string, limit t
 // Removing of old data entries and associations with data types.
 // Parameter limit time.Time - only data entries that are as old or older than limit are removed.
 func (StatisticalData *StatisticalData) RemoveOldDataEntries(limit time.Time) {
-	tx := configuration.DB.Begin()
+	tx := StatisticalData.DatabaseConnection.DB.Begin()
 	// Searching for old data.
 	var oldData [](*Data)
 	err01 := tx.Where("time <= ?", limit).Find(&oldData).Error

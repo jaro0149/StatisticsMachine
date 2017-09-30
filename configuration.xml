@@ -6,13 +6,20 @@
 		<ReadTimeout>10</ReadTimeout>
         <DataBuffer>1000</DataBuffer>
 	</NetworkConfiguration>
+	<RServer>
+		<LocalhostPort>6311</LocalhostPort>
+	</RServer>
 	<CleaningConfiguration>
-		<CleaningInterval>60</CleaningInterval>
-		<CleaningDepth>60</CleaningDepth>
+		<CleaningInterval>60000</CleaningInterval>
+		<CleaningDepth>60000</CleaningDepth>
 	</CleaningConfiguration>
 	<PredictionConfiguration>
-		<SmoothingRange>5000</SmoothingRange>
-		<SmoothingThreads>4</SmoothingThreads>
+        <SmoothingThreads>4</SmoothingThreads>
+        <SmoothingRange>1000</SmoothingRange>
+        <SmoothingInterval>5000</SmoothingInterval>
+		<PredictionHorizon>10000</PredictionHorizon>
+        <PredictionHistory>20000</PredictionHistory>
+        <PredictionFrequency>10000</PredictionFrequency>
 	</PredictionConfiguration>
 	<RestConfiguration>
 		<LocalhostPort>8080</LocalhostPort>

@@ -56,7 +56,7 @@ func openNetworkAdapter(conf *model.NetworkConfiguration) *pcap.Handle {
 	handle, err := pcap.OpenLive(conf.AdapterName, int32(conf.MaximumFrameSize),
 		true, readTimeout)
 	if err != nil {
-		configuration.Error.Fatalf("Error opening device %s: %v", conf.AdapterName, err)
+		configuration.Error.Panicf("Error opening device %s: %v", conf.AdapterName, err)
 	}
 	configuration.Info.Println("Network adapter is open.")
 	return handle
