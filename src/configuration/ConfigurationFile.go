@@ -2,13 +2,13 @@ package configuration
 
 import "os"
 
-type ConfigFileAccessor struct {}
+// Attribute XmlFile *os.File - Reference to the configuration file. See os.File.
+type ConfigFileAccessor struct {
+	XmlFile *os.File
+}
 
 // The path to the configuration file (the same directory as application).
 const XML_PATH = "configuration.xml"
-
-// Reference to the configuration file. See os.File.
-var XmlFile *os.File
 
 // Creating of new ConfigFileAccessor object.
 // Returning - instance that controls access to XML configuration file.
@@ -17,23 +17,25 @@ func NewConfigFileAccessor() *ConfigFileAccessor {
 }
 
 // Opening of the configuration file (XML settings) so XmlFile is initialised.
-func (ConfigFileAccessor *ConfigFileAccessor) OpenXmlConfigurationFile() {
+// Returning *os.File - opened XML configuration file. See os.File.
+func (ConfigFileAccessor *ConfigFileAccessor) OpenXmlConfigurationFile() *os.File {
 	Info.Println("Opening of the configuration file.")
 	xmlFileDemo, err := os.Open(XML_PATH)
 	if err != nil {
-		Error.Fatal("Error opening file: ", err)
+		Error.Panic("Error opening file: ", err)
 	}
-	XmlFile = xmlFileDemo
+	ConfigFileAccessor.XmlFile = xmlFileDemo
 	Info.Println("Configuration file is opened.")
+	return xmlFileDemo
 }
 
 // Closing of the configuration file.
 func (ConfigFileAccessor *ConfigFileAccessor) CloseConfigurationFile() {
 	Info.Println("Closing of the configuration file.")
-	err := XmlFile.Close()
+	err := ConfigFileAccessor.XmlFile.Close()
 	if err != nil {
-		Error.Fatal("Error closing file: ", err)
+		Error.Panic("Error closing file: ", err)
 	}
-	XmlFile = nil
+	ConfigFileAccessor.XmlFile = nil
 	Info.Println("Configuration file is closed.")
 }

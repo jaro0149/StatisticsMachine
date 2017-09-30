@@ -6,10 +6,10 @@ import (
 	"bytes"
 )
 
-type DatabaseConnection struct {}
-
-// Database connection reference. See gorm.DB.
-var DB *gorm.DB
+// Attribute DB *gorm.DB - Database connection reference. See gorm.DB.
+type DatabaseConnection struct {
+	DB *gorm.DB
+}
 
 // Stale path to the database file (SQLite3 machine) - the same directory as application.
 var databasePath = "database.db"
@@ -27,7 +27,7 @@ func (DatabaseConnection *DatabaseConnection) ConnectDatabase() {
 		Error.Panic("Database connection cannot be created: ", err)
 	}
 	tempDb.LogMode(false)
-	DB = tempDb
+	DatabaseConnection.DB = tempDb
 	Info.Println("Databse connection is created.")
 }
 
@@ -48,17 +48,17 @@ func (DatabaseConnection *DatabaseConnection) ConnectDatabaseFromTest(upperDirec
 		Error.Panic("Database connection cannot be created: ", err)
 	}
 	tempDb.LogMode(true)
-	DB = tempDb
+	DatabaseConnection.DB = tempDb
 	Info.Println("Database connection is created.")
 }
 
 // Closing of the database connection - DB is set to nil.
 func (DatabaseConnection *DatabaseConnection) CloseDatabase() {
 	Info.Println("Closing of the database connection.")
-	err := DB.Close()
+	err := DatabaseConnection.DB.Close()
 	if err != nil {
 		Error.Panic("Database connection cannot be closed: ", err)
 	}
-	DB = nil
+	DatabaseConnection.DB = nil
 	Info.Println("Database connection is closed.")
 }

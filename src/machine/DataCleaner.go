@@ -39,12 +39,12 @@ func (DataCleaner *DataCleaner) StartCleaning() {
 // Parameter cleaningConfiguration *model.CleaningConfiguration - cleaning depth and interval. See
 // model.CleaningConfiguration.
 func periodicTask(cleaningConfiguration *model.CleaningConfiguration, statisticalData *model.StatisticalData) {
-	ticker := time.NewTicker(time.Duration(cleaningConfiguration.CleaningInterval) * time.Second)
+	ticker := time.NewTicker(time.Duration(cleaningConfiguration.CleaningInterval) * time.Millisecond)
 	for {
 		select {
 		case <- ticker.C:
 			now := time.Now()
-			limit := now.Add(- time.Duration(cleaningConfiguration.CleaningDepth) * time.Second)
+			limit := now.Add(- time.Duration(cleaningConfiguration.CleaningDepth) * time.Millisecond)
 			statisticalData.RemoveOldDataEntries(limit)
 		}
 	}
