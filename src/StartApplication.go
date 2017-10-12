@@ -6,7 +6,6 @@ import (
 	"configuration"
 	"model"
 	"machine"
-	"time"
 )
 
 func main() {
@@ -25,6 +24,5 @@ func main() {
 	statisticsManager := model.NewStatisticalData(databaseConnection)
 	framesParser := machine.NewFramesParser(&networkConfiguration, statisticsManager)
 	framesParser.StartCapturing()
-
-	time.Sleep(time.Duration(1000 * time.Second))
+	select{}
 }

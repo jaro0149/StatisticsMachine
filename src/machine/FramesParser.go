@@ -9,6 +9,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"bytes"
 	"net"
+	"fmt"
 )
 
 // Initial capacity of the frames buffer.
@@ -16,20 +17,16 @@ const BUFFER_ALLOCATION_SIZE uint = 50
 const FILTER_TZSP string = "udp port 37008"
 const PORT_TZSP uint = 37008
 
+// Attribute routerMacAddress *([]byte) - MAC address of monitored router's interface.
 // Attribute conf model.NetworkConfiguration - network configuration settings. See model.NetworkConfiguration.
 // Attribute statisticalData *model.StatisticalData - instance that control access to SQL database.
 // See model.StatisticalData.
+// Attribute handler *pcap.Handle - incoming frames handler. See pcap.Handle.
 type FramesParser struct {
+	routerMacAddress		*([]byte)
 	networkConfiguration 	*model.NetworkConfiguration
 	statisticalData 		*model.StatisticalData
-}
-
-// Frame combined with the timestamp (when the frame was captured).
-// Attribute Frame *gopacket.Packet - structure of network frame.
-// Attribute Time time.Time - time of the frame capture.
-type TimestampedFrame struct {
-	Frame	*gopacket.Packet
-	Time	time.Time
+	handler					*pcap.Handle
 }
 
 // Creating instance of the FramesParser.
@@ -47,76 +44,79 @@ func NewFramesParser(conf *model.NetworkConfiguration, statisticalData *model.St
 
 // Starting of the frames capturing under selected network configuration.
 func (FramesParser *FramesParser) StartCapturing() {
-	handle := openNetworkAdapter(FramesParser.networkConfiguration)
-	processFrames(FramesParser.networkConfiguration, FramesParser.statisticalData, handle)
+	FramesParser.readRouterMacAddress()
+	FramesParser.openNetworkAdapter()
+	FramesParser.processFrames()
+}
+
+// Converting of string to MAC address (byte array format).
+func (FramesParser *FramesParser) readRouterMacAddress() {
+	macAddress := FramesParser.networkConfiguration.RouterMacAddress
+	hw, err := net.ParseMAC(macAddress)
+	if err != nil {
+		configuration.Error.Panicf("Error reading of router's MAC address %s: %v", macAddress, err)
+	}
+	array := []byte(hw)
+	FramesParser.routerMacAddress = &array
 }
 
 // Opening of the network adapter and setting of TZSP filter.
-// Parameter configuration model.NetworkConfiguration - network configuration settings. See model.NetworkConfiguration.
-// Returning *pcap.Handle - frames handler. See pcap.Handle.
-func openNetworkAdapter(conf *model.NetworkConfiguration) *pcap.Handle {
+func (FramesParser *FramesParser) openNetworkAdapter() {
 	configuration.Info.Println("Opening of the network adapter.")
-	readTimeout := time.Duration(conf.ReadTimeout) * time.Millisecond
-	handle, err01 := pcap.OpenLive(conf.AdapterName, int32(conf.MaximumFrameSize),
+	readTimeout := time.Duration(FramesParser.networkConfiguration.ReadTimeout) * time.Millisecond
+	handler, err01 := pcap.OpenLive(FramesParser.networkConfiguration.AdapterName,
+		int32(FramesParser.networkConfiguration.MaximumFrameSize),
 		true, readTimeout)
 	if err01 != nil {
-		configuration.Error.Panicf("Error opening device %s: %v", conf.AdapterName, err01)
+		configuration.Error.Panicf("Error opening device %s: %v",
+			FramesParser.networkConfiguration.AdapterName, err01)
 	}
 	configuration.Info.Println("Network adapter is open.")
 
 	configuration.Info.Println("Setting of TZSP filter.")
-	err02 := handle.SetBPFFilter(FILTER_TZSP)
+	err02 := handler.SetBPFFilter(FILTER_TZSP)
 	if err02 != nil {
 		configuration.Error.Panicf("Error applying of TZSP filter: %v", err02)
 	}
 	configuration.Info.Println("TZSP filter is applied.")
-
-	return handle
+	FramesParser.handler = handler
 }
 
 // Sequential processing of frames.
-// Parameter configuration model.NetworkConfiguration - network configuration settings.
-// Parameter statisticalData *model.StatisticalData - instance that control access to SQL database.
-// See model.StatisticalData.
-// Parameter handle *pcap.Handle - frames handler. See pcap.Handle.
-func processFrames(conf *model.NetworkConfiguration, statisticalData *model.StatisticalData, handle *pcap.Handle) {
+func (FramesParser *FramesParser) processFrames() {
 	configuration.Info.Println("Starting of frames processing.")
-	defer handle.Close()
-	tickChannel := time.Tick(time.Millisecond * time.Duration(conf.DataBuffer))
-	routerMacAddress := parseStringToMacAddress(conf.RouterMacAddress)
-	framesBuffer := make([](*TimestampedFrame), 0, BUFFER_ALLOCATION_SIZE)
-	framesSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	handler := FramesParser.handler
+	defer handler.Close()
+	framesBuffer := make([](*gopacket.Packet), 0, BUFFER_ALLOCATION_SIZE)
+	tickChannel := time.Tick(time.Millisecond * time.Duration(FramesParser.networkConfiguration.DataBuffer))
+	framesSource := gopacket.NewPacketSource(handler, handler.LinkType())
 	for frame := range framesSource.Packets() {
 		frameData := frame
 		select {
 		case <- tickChannel:
 			// after data buffer time (ms), buffer is sent to next processing on the way to the database ...
-			framesBuffer = append(framesBuffer, &TimestampedFrame{Frame: &frameData, Time: time.Now()})
-			go sendDataToDatabase(statisticalData, framesBuffer, routerMacAddress)
-			framesBuffer = [](*TimestampedFrame){}
+			framesBuffer = append(framesBuffer, &frameData)
+			go FramesParser.processFramesBucket(framesBuffer)
+			framesBuffer = [](*gopacket.Packet){}
 		default:
-			framesBuffer = append(framesBuffer, &TimestampedFrame{Frame: &frameData, Time: time.Now()})
+			framesBuffer = append(framesBuffer, &frameData)
 		}
 	}
 	configuration.Info.Println("Processing of the frames ended.")
 }
 
-// Forming of raw data and sending of frames collections to database manager.
-// Parameter statisticalData *model.StatisticalData - instance that control access to SQL database.
-// See model.StatisticalData.
-// Parameter timestampedFrames [](*TimestampedFrame - slice of frames tagged with timestamp. See TimestampedFrame.
-func sendDataToDatabase(statisticalData *model.StatisticalData, timestampedFrames [](*TimestampedFrame),
-	routerMacAddress *([]byte)) {
-	rawData := make([](*model.RawData), 0)
-	for _, timeFrame := range timestampedFrames {
-		udpLayer := (*timeFrame.Frame).Layer(layers.LayerTypeUDP)
+// Processing of frames bucket by using aggregation on bytes over same raw data types.
+// Parameter buffer []*gopacket.Packet - buffered network frames.
+func (FramesParser *FramesParser) processFramesBucket(buffer []*gopacket.Packet) {
+	repository := make(map[model.RawDataType](*model.RawData))
+	for _, frame := range buffer {
+		udpLayer := (*frame).Layer(layers.LayerTypeUDP)
 		if udpLayer != nil {
 			udp, _ := udpLayer.(*layers.UDP)
 			dstPort := uint(udp.DstPort)
 			if dstPort == PORT_TZSP {
 				// declaration of final protocols entities
 				var networkProtocol, transportProtocol, srcPort, dstPort, direction uint = 0, 0, 0, 0, 0
-
 				// reading of TZSP header && dispatching of original frame
 				payload := udp.LayerPayload()
 				taggedFields := uint(payload[4])
@@ -136,7 +136,7 @@ func sendDataToDatabase(statisticalData *model.StatisticalData, timestampedFrame
 					ethernetPacket, _ := ethernetLayer.(*layers.Ethernet)
 					networkProtocol = uint(ethernetPacket.EthernetType)
 					srcAddress := []byte(ethernetPacket.SrcMAC)
-					if bytes.Compare(srcAddress, *routerMacAddress) == 0 {
+					if bytes.Compare(srcAddress, *FramesParser.routerMacAddress) == 0 {
 						direction = 1
 					}
 				}
@@ -152,7 +152,7 @@ func sendDataToDatabase(statisticalData *model.StatisticalData, timestampedFrame
 					ip, _ := ipv6Layer.(*layers.IPv6)
 					transportProtocol = uint(ip.NextHeader)
 				}
-				// reading of ports from TCP header
+				// reading of port from TCP header
 				tcpLayer := (packet).Layer(layers.LayerTypeTCP)
 				if tcpLayer != nil {
 					tcp, _ := tcpLayer.(*layers.TCP)
@@ -167,31 +167,38 @@ func sendDataToDatabase(statisticalData *model.StatisticalData, timestampedFrame
 					dstPort = uint(udp.DstPort)
 				}
 				// modelling of raw data element
-				rawData = append(rawData, &model.RawData{
-					Time: timeFrame.Time,
-					SrcPort: srcPort,
-					DstPort: dstPort,
+				rawDataType := model.RawDataType{
 					NetworkProtocol: networkProtocol,
 					TransportProtocol: transportProtocol,
-					Bytes: uint(len(originalData)),
+					SrcPort: srcPort,
+					DstPort: dstPort,
 					Direction: direction,
-				})
+				}
+				_, present := repository[rawDataType]
+				if present == true {
+					data := repository[rawDataType]
+					data.Bytes += uint(len(originalData))
+					data.Time = time.Now()
+					repository[rawDataType] = data
+				} else {
+					rawData := model.RawData{
+						Bytes: uint(len(originalData)),
+						Time: time.Now(),
+						RawDataType: &rawDataType,
+					}
+					repository[rawDataType] = &rawData
+				}
 			}
 		}
 	}
-	if len(rawData) != 0 {
-		statisticalData.WriteNewDataEntries(&rawData)
+	// if there are some entries ...
+	if len(repository) != 0 {
+		// building of slice from map and sending of slice to DB
+		slice := make([](*model.RawData), 0, len(repository))
+		for  _, value := range repository {
+			slice = append(slice, value)
+		}
+		FramesParser.statisticalData.WriteNewDataEntries(&slice)
+		fmt.Println("OK")
 	}
-}
-
-// Converting of string to MAC address (byte array format).
-// Parameter macAddress string - string representation of MAC address.
-// Returning *([]byte) - byte array representation of MAC address.
-func parseStringToMacAddress(macAddress string) *([]byte) {
-	hw, err := net.ParseMAC(macAddress)
-	if err != nil {
-		configuration.Error.Panicf("Error reading of router's MAC address %s: %v", macAddress, err)
-	}
-	array := []byte(hw)
-	return &array
 }

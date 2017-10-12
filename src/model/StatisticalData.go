@@ -52,18 +52,25 @@ type DataType struct {
 
 // This structure represents information that are used for inserting new data into Data relation.
 // Attribute Bytes uint - number of captured bytes (whole frame).
+// Attribute Time time.Time - time of the last frame arrival of specific type within closed time interval.
+// Attribute *RawDataType - data type information.
+type RawData struct {
+	Bytes				uint
+	Time				time.Time
+	*RawDataType
+}
+
+// This structure represents raw data type information got from network adapter.
 // Attribute NetworkProtocol uint - EthernetType field from Ethernet2 frame (decimal value).
 // Attribute TransportProtocol uint - Protocol field from IPv4 / IPv6 packet (decimal value).
 // Attribute SrcPort uint - TCP / UDP source port number.
 // Attribute DstPort uint - TCP / UDP destination port number.
 // Attribute Direction uint - RX (0) or TX (1) direction of flow.
-type RawData struct {
-	Bytes				uint
+type RawDataType struct {
 	NetworkProtocol		uint
 	TransportProtocol	uint
 	SrcPort				uint
 	DstPort				uint
-	Time				time.Time
 	Direction			uint
 }
 
