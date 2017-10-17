@@ -1,3 +1,5 @@
 .idea/
 pkg/
 database.db
+/web/*
+!/web/src

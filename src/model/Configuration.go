@@ -72,12 +72,22 @@ type RestConfiguration struct {
 	PathModifyDataType		string
 }
 
+// Web server configuration (Angular 4 scope).
+// Attribute LocalhostPort uint - listening TCP port (HTTP communication).
+// Attribute RootPath - path to deployed web server page (root directory).
+type WebServerConfiguration struct {
+	LocalhostPort			uint
+	RootPath				string
+}
+
 // R server configuration (statistical tool).
 // Attribute LocalhostPort uint - listening TCP port (HTTP communication).
 type RServerConfiguration struct {
 	LocalhostPort		uint
 }
 
+// Creating instance of configuration manager.
+// Returning *ConfigurationManager - ConfigurationManager object.
 func NewConfigurationManager() *ConfigurationManager {
 	return &ConfigurationManager{}
 }
