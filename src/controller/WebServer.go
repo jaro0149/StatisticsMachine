@@ -24,6 +24,7 @@ func NewWebServer(conf *model.WebServerConfiguration) *WebServer {
 
 // Starting of web server using files located at specified path; server will listen on specified TCP port.
 func (WebServer *WebServer) StartWebServer() {
+	configuration.Info.Println("Initialisation of WEB server.")
 	serverMux := http.NewServeMux()
 	srv := &http.Server{
 		Addr: ":" + strconv.Itoa(int(WebServer.configuration.LocalhostPort)),
@@ -37,4 +38,5 @@ func (WebServer *WebServer) StartWebServer() {
 			configuration.Error.Panicf("REST server cannot be started: %v", err)
 		}
 	}()
+	configuration.Info.Println("WEB server has been started successfully.")
 }
