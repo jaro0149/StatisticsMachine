@@ -8,28 +8,30 @@ import (
 	"configuration"
 	"encoding/json"
 	"strconv"
+	"machine"
 )
 
 // Attribute conf *model.RestConfiguration - REST settings - routing paths. See model.RestConfiguration.
 // Attribute databaseController *model.StatisticalData - accessing of database operations. See model.StatisticalData.
-// Attribute dataRouter *model.DataRouter - data router for setting final (forecasted or smoothed) data entries.
+// Attribute deviceManager *machine.DeviceManager - I/O controller (led strip, buttons, and lcd)
 type RestController struct {
 	restConfiguration	*model.RestConfiguration
 	databaseController	*model.StatisticalData
-	dataRouter			*model.DataRouter
+	deviceManager		*machine.DeviceManager
 }
 
 // Creating instance of the RestController.
 // Parameter conf *model.RestConfiguration - REST settings - routing paths. See model.RestConfiguration.
 // Parameter databaseController *model.StatisticalData - accessing of database operations. See model.StatisticalData.
 // Parameter dataRouter *model.DataRouter - data router for setting final (forecasted or smoothed) data entries.
+// Parameter deviceManager *machine.DeviceManager - I/O controller (led strip, buttons, and lcd)
 // Returning *RestController - RestController object.
 func NewRestController(conf *model.RestConfiguration, databaseController *model.StatisticalData,
-	dataRouter *model.DataRouter) *RestController {
+	deviceManager *machine.DeviceManager) *RestController {
 	restController := RestController {
 		restConfiguration: conf,
 		databaseController: databaseController,
-		dataRouter: dataRouter,
+		deviceManager: deviceManager,
 	}
 	return &restController
 }
@@ -46,7 +48,7 @@ func (RestController *RestController) StartRestController() {
 		r.POST(RestController.restConfiguration.PathWriteNewDataType, RestController.WriteNewDataType)
 		r.POST(RestController.restConfiguration.PathModifyDataType, RestController.ModifyDataType)
 		// Starting of routing
-		startingPath := fmt.Sprintf("localhost:%d", RestController.restConfiguration.LocalhostPort)
+		startingPath := fmt.Sprintf(":%d", RestController.restConfiguration.LocalhostPort)
 		err := http.ListenAndServe(startingPath, r)
 		if err != nil {
 			configuration.Error.Panicf("REST server cannot be started: %v", err)
@@ -113,12 +115,14 @@ func (RestController *RestController) GetDataType(w http.ResponseWriter, r *http
 // Parameter r *http.Request - HTTP request header. See http.Request.
 // Parameter p httprouter.Params - URI parameter - id. See httprouter.Params.
 func (RestController *RestController) RemoveDataType(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	RestController.databaseController.UltimateLock()
+	defer RestController.databaseController.UltimateUnlock()
 	id, err01 := strconv.Atoi(p.ByName("id"))
 	if err01 == nil {
-		dataType, err02 := RestController.databaseController.RemoveDataType(uint(id))
+		_, err02 := RestController.databaseController.RemoveDataType(uint(id))
 		if err02 == nil {
-			RestController.dataRouter.RemoveDataByType(dataType)
 			w.WriteHeader(200)
+			RestController.deviceManager.RemoveDataType(uint(id))
 		} else {
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(404)
@@ -162,6 +166,8 @@ func (RestController *RestController) WriteNewDataType(w http.ResponseWriter, r 
 // Parameter r *http.Request - HTTP request header. See http.Request.
 // Parameter p httprouter.Params - URI parameter - id. See httprouter.Params.
 func (RestController *RestController) ModifyDataType(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	RestController.databaseController.UltimateLock()
+	defer RestController.databaseController.UltimateUnlock()
 	errorsBucket := configuration.NewCompositeError()
 	dataType := model.DataType{}
 	err01 := json.NewDecoder(r.Body).Decode(&dataType)
@@ -177,6 +183,10 @@ func (RestController *RestController) ModifyDataType(w http.ResponseWriter, r *h
 		err04 := RestController.databaseController.ModifyDataType(uint(id), &dataType)
 		if err04 == nil {
 			w.WriteHeader(200)
+			RestController.deviceManager.ModifyDataTypeName(uint(id), dataType.Name)
+			if !dataType.Forecasting {
+				RestController.deviceManager.TurnOffPrediction(uint(id))
+			}
 		} else {
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(400)
