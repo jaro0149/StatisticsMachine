@@ -14,6 +14,7 @@ import (
 type StatisticalData struct {
 	DatabaseConnection 	*configuration.DatabaseConnection
 	mutex				*sync.Mutex
+	ultimateLock		*sync.Mutex
 }
 
 // Data represents structure of information that is stored for matching incoming frames.
@@ -74,6 +75,14 @@ type RawDataType struct {
 	Direction			uint
 }
 
+// Smoothed or predicted data.
+// Attribute DataElement float64 - number of bytes.
+// Attribute Timestamp time.Time - data element is set on this time.
+type FinalData struct {
+	DataElement		uint64
+	Timestamp		time.Time
+}
+
 // Creating of StatisticalData instance.
 // Parameter databaseConnection *configuration.DatabaseConnection - database connection manager.
 // See *configuration.DatabaseConnection.
@@ -81,13 +90,24 @@ func NewStatisticalData(databaseConnection *configuration.DatabaseConnection) *S
 	statisticalData := StatisticalData{
 		DatabaseConnection: databaseConnection,
 		mutex: &sync.Mutex{},
+		ultimateLock: &sync.Mutex{},
 	}
 	return &statisticalData
+}
+
+func (StatisticalData *StatisticalData) UltimateLock() {
+	StatisticalData.ultimateLock.Lock()
+}
+
+func (StatisticalData *StatisticalData) UltimateUnlock() {
+	StatisticalData.ultimateLock.Unlock()
 }
 
 // Initialisation of database relations or tables if they haven't already been created.
 //
 func (StatisticalData *StatisticalData) TablesInit() {
+	StatisticalData.mutex.Lock()
+	defer StatisticalData.mutex.Unlock()
 	configuration.Info.Println("Initialisation of the database relations.")
 	err := StatisticalData.DatabaseConnection.DB.AutoMigrate(&DataType{}, &Data{}).Error
 	if err != nil {
@@ -102,6 +122,7 @@ func (StatisticalData *StatisticalData) TablesInit() {
 // See RawData
 func (StatisticalData *StatisticalData) WriteNewDataEntries(rawData *[](*RawData)) {
 	StatisticalData.mutex.Lock()
+	defer StatisticalData.mutex.Unlock()
 	if len(*rawData) != 0 {
 		tx := StatisticalData.DatabaseConnection.DB.Begin()
 		for _, data := range *rawData {
@@ -138,7 +159,6 @@ func (StatisticalData *StatisticalData) WriteNewDataEntries(rawData *[](*RawData
 			}
 		}
 		tx.Commit()
-		StatisticalData.mutex.Unlock()
 	}
 }
 
@@ -149,6 +169,8 @@ func (StatisticalData *StatisticalData) WriteNewDataEntries(rawData *[](*RawData
 // Returning *DataType - Data type with assigned ID.
 // Returning error - The data type is not unique.
 func (StatisticalData *StatisticalData) WriteNewDataType(dataType *DataType) (*DataType, error) {
+	StatisticalData.mutex.Lock()
+	defer StatisticalData.mutex.Unlock()
 	tx := StatisticalData.DatabaseConnection.DB.Begin()
 	err01 := checkDataType(dataType)
 	if err01 != nil {
@@ -177,6 +199,8 @@ func (StatisticalData *StatisticalData) WriteNewDataType(dataType *DataType) (*D
 // Returning *DataType - read information about data type or nil if the error is not nil. See DataType.
 // Returning error - Data type doesn't exist or nil if there is not error.
 func (StatisticalData *StatisticalData) GetDataType(id uint) (*DataType, error) {
+	StatisticalData.mutex.Lock()
+	defer StatisticalData.mutex.Unlock()
 	if id != 0 {
 		tx := StatisticalData.DatabaseConnection.DB.Begin()
 		dataType := DataType{ID: id}
@@ -207,6 +231,8 @@ func (StatisticalData *StatisticalData) GetDataType(id uint) (*DataType, error) 
 // Parameter dataType *DataType - modified data type (id cannot be changed). See DataType.
 // Returning error - the specified data type is not unique or data type with specified id cannot be found.
 func (StatisticalData *StatisticalData) ModifyDataType(id uint, dataType *DataType) error {
+	StatisticalData.mutex.Lock()
+	defer StatisticalData.mutex.Unlock()
 	tx := StatisticalData.DatabaseConnection.DB.Begin()
 	err01 := checkDataType(dataType)
 	if err01 != nil {
@@ -246,6 +272,8 @@ func (StatisticalData *StatisticalData) ModifyDataType(id uint, dataType *DataTy
 // Returning *DataType - removed data type. See DataType.
 // Returning error - data type with given name cannot be found.
 func (StatisticalData *StatisticalData) RemoveDataType(id uint) (*DataType, error) {
+	StatisticalData.mutex.Lock()
+	defer StatisticalData.mutex.Unlock()
 	if id != 0 {
 		tx := StatisticalData.DatabaseConnection.DB.Begin()
 		dataType := DataType{ID: id}
@@ -303,6 +331,8 @@ func (StatisticalData *StatisticalData) RemoveDataType(id uint) (*DataType, erro
 // Listing of all saved data types.
 // Returning *[](*DataType) - list of all data types with their description. See DataType.
 func (StatisticalData *StatisticalData) ListDataTypes() *[](*DataType) {
+	StatisticalData.mutex.Lock()
+	defer StatisticalData.mutex.Unlock()
 	tx := StatisticalData.DatabaseConnection.DB.Begin()
 	var dataTypes [](*DataType)
 	err := tx.Find(&dataTypes).Error
@@ -316,12 +346,14 @@ func (StatisticalData *StatisticalData) ListDataTypes() *[](*DataType) {
 
 // Searching for the most recent data entries of specific type.
 // Parameter name string - name of the data type.
-// Parameter limit time.Time - only data entries older than limit are returned. See time.Time.
+// Parameter limit time.Time - only data entries newer than limit are returned. See time.Time.
 // Parameter direction uint - only RX (0) or TX (1) data entries are returned.
 // Returning *[](*Data) - data entries (references). See Data.
 // Returning error - Non-nil error is returned if the data type with selected name doesn't exist.
 func (StatisticalData *StatisticalData) ListLastDataEntries(name string, limit time.Time, direction uint) (
 	*[](*Data), error) {
+	StatisticalData.mutex.Lock()
+	defer StatisticalData.mutex.Unlock()
 	tx := StatisticalData.DatabaseConnection.DB.Begin()
 	var finalData [](*Data)
 	dataType := DataType{Name: name}
@@ -349,6 +381,8 @@ func (StatisticalData *StatisticalData) ListLastDataEntries(name string, limit t
 // Removing of old data entries and associations with data types.
 // Parameter limit time.Time - only data entries that are as old or older than limit are removed.
 func (StatisticalData *StatisticalData) RemoveOldDataEntries(limit time.Time) {
+	StatisticalData.mutex.Lock()
+	defer StatisticalData.mutex.Unlock()
 	tx := StatisticalData.DatabaseConnection.DB.Begin()
 	// Searching for old data.
 	var oldData [](*Data)

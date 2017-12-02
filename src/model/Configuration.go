@@ -11,15 +11,21 @@ type ConfigurationManager struct {}
 // The struct of configuration file.
 // Attribute NetworkConfiguration - network-based settings.
 // Attribute CleaningConfiguration - settings that relate with periodical cleaning of old data entries.
-// Attribute PredictionConfiguration - setting that relate with smoothing and forecasting model.
+// Attribute LoadAnalyserConfiguration - settings that relate with load analyser.
 // Attribute RestConfiguration - settings that relate with routing.
 // Attribute RServerConfiguration - configuration of connection to R server.
+// Attribute WebServerConfiguration	- configuration of web server.
+// Attribute GPIOConfiguration - hardware pins.
+// Attribute PredictionAnalyserConfiguration - settings that relate with prediction analyser.
 type ConfigData struct {
-	NetworkConfiguration 	NetworkConfiguration
-	CleaningConfiguration 	CleaningConfiguration
-	PredictionConfiguration PredictionConfiguration
-	RestConfiguration		RestConfiguration
-	RServerConfiguration	RServerConfiguration
+	NetworkConfiguration    		NetworkConfiguration
+	CleaningConfiguration   		CleaningConfiguration
+	LoadAnalyserConfiguration 		LoadAnalyserConfiguration
+	RestConfiguration       		RestConfiguration
+	RServerConfiguration    		RServerConfiguration
+	WebServerConfiguration  		WebServerConfiguration
+	PHYConfiguration       			PHYConfiguration
+	PredictionAnalyserConfiguration	PredictionAnalyserConfiguration
 }
 
 // Network-based settings.
@@ -31,12 +37,14 @@ type ConfigData struct {
 // continuously filling before it is sent to the next processing (writing to the database is the last mile).
 // Attribute RouterMacAddress - Referencing mac address of router port (from this address, the flow direction is
 // determined).
+// Attribute LinkBandwidth uint64 - Capacity of observed network connection (both TX and RX) [bytes/s].
 type NetworkConfiguration struct {
 	AdapterName 		string
 	MaximumFrameSize 	uint
 	ReadTimeout 		int
 	DataBuffer 			uint
 	RouterMacAddress	string
+	LinkBandwidth		uint64
 }
 
 // Cleaning-based settings.
@@ -47,13 +55,35 @@ type CleaningConfiguration struct {
 	CleaningDepth 		uint
 }
 
-// Prediction-based settings.
+// Settings of traffic load analyser.
 // Attribute SmoothingRange uint - time range (milliseconds) that is smoothed to one point in time.
 // Attribute SmoothingThreads uint - Initial number of threads that serve data smoothing. This count is subsequently
 // decreased if threads cannot be fitted with data slice.
-type PredictionConfiguration struct {
+// Attribute ComputeInterval uint - interval between new computations of actual load [ms].
+// Attribute ComputeDepth uint - how far to go when it comes to average computation [ms].
+type LoadAnalyserConfiguration struct {
 	SmoothingRange		uint
 	SmoothingThreads	uint
+	ComputeInterval		uint
+	ComputeDepth		uint
+}
+
+// Settings of prediction analyser.
+// Attribute SmoothingRange uint - time range (milliseconds) that is smoothed to one point in time.
+// Attribute SmoothingThreads uint - Initial number of threads that serve data smoothing. This count is subsequently
+// decreased if threads cannot be fitted with data slice.
+// Attribute ComputeInterval uint - interval between new computations of prediction [ms].
+// Attribute ComputeDepth uint - how far to go when it comes to ARIMA computation [ms].
+// Attribute PredictionHorizon uint - ARIMA prediction horizon [ms].
+// Attribute Designator	float64 - it describes criterion for changing prediction state - fraction of bandwidth that
+// must exceeded from actual load (positivw or negative fraction domain).
+type PredictionAnalyserConfiguration struct {
+	SmoothingRange		uint
+	SmoothingThreads	uint
+	ComputeInterval		uint
+	ComputeDepth		uint
+	PredictionHorizon	uint
+	Designator			float64
 }
 
 // REST configuration.
@@ -81,9 +111,38 @@ type WebServerConfiguration struct {
 }
 
 // R server configuration (statistical tool).
-// Attribute LocalhostPort uint - listening TCP port (HTTP communication).
+// Attribute RemotePort uint - listening TCP port (HTTP communication).
+// Attribute RemoteIpAddress string - IP address on which server resides.
+// Attribute SessionsCapacity uint - how many sessions can be active concurrently.
 type RServerConfiguration struct {
-	LocalhostPort		uint
+	RemoteIpAddress		string
+	RemotePort			uint
+	SessionsCapacity	uint
+}
+
+// Configuration of GPIO pins.
+// Attribute PhyLeftButton uint - physical pin to which the left button is connected.
+// Attribute PhyRightButton	uint - physical pin to which the right button is connected.
+// Attribute BCM_RS	uint - reset LCD pin.
+// Attribute BCM_EN uint - enable LCD pin.
+// Attributes BCM_DB4 - BCM_DB7 - data LCD pins.
+// Attribute BCM_Backlight uint - software-based back-light control on LCD - unused.
+// Attribute BCM_LED_Strip uint - LED strip data pin.
+// Attribute LEDsCount uint - number of LEDs assembled in strip.
+// Attribute LEDsBrightness uint - LEDs brightness (interval <0, 255>).
+type PHYConfiguration struct {
+	PhyLeftButton		uint
+	PhyRightButton		uint
+	BCM_RS				uint
+	BCM_EN				uint
+	BCM_DB4				uint
+	BCM_DB5				uint
+	BCM_DB6				uint
+	BCM_DB7				uint
+	BCM_Backlight		uint
+	BCM_LED_Strip		uint
+	LEDsCount			uint
+	LEDsBrightness		uint
 }
 
 // Creating instance of configuration manager.
