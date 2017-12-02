@@ -48,5 +48,5 @@ func periodicTask(cleaningConfiguration *model.CleaningConfiguration, statistica
 			statisticalData.RemoveOldDataEntries(limit)
 		}
 	}
-	configuration.Info.Println("Data entries cleaning finished.")
+	configuration.Info.Println("Cleaning of data entries finished.")
 }
